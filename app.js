@@ -695,6 +695,65 @@ app.post('/create-saving', async (req, res) => {
   }
 });
 
+app.get('/savings/unreconciled', async (req, res) => {
+  const connection = await connect.getConnection();
+
+  try {
+    const query = `SELECT * FROM savings_history WHERE Reconciled = 0`;
+    const [unreconciledSavings] = await connection.query(query);
+
+    res.status(200).json(unreconciledSavings);
+  } catch (error) {
+    console.error('Error fetching unreconciled savings:', error);
+    res.status(500).json({ message: 'Server error while fetching unreconciled savings.' });
+  } finally {
+    connection.release();
+  }
+});
+
+
+app.get('/savings/all', async (req, res) => {
+  const connection = await connect.getConnection();
+
+  try {
+    const query = `SELECT * FROM savings_history`;
+    const [allSavings] = await connection.query(query);
+
+    res.status(200).json(allSavings);
+  } catch (error) {
+    console.error('Error fetching all savings records:', error);
+    res.status(500).json({ message: 'Server error while fetching all savings records.' });
+  } finally {
+    connection.release();
+  }
+});
+
+app.post('/savings/reconcile', async (req, res) => {
+  const { id } = req.body;  // Expect an array of IDs to be reconciled
+
+  if (!id || !Array.isArray(id) || id.length === 0) {
+    return res.status(400).json({ message: 'Invalid or missing IDs.' });
+  }
+
+  const connection = await connect.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const query = `UPDATE savings_history SET Reconciled = 1 WHERE id IN (?)`;
+    await connection.query(query, [id]);
+
+    await connection.commit();
+    res.status(200).json({ message: 'Savings records marked as reconciled successfully.' });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error reconciling savings records:', error);
+    res.status(500).json({ message: 'Server error while reconciling savings records.' });
+  } finally {
+    connection.release();
+  }
+});
+
 
 
 io.on('connection', (socket) => {

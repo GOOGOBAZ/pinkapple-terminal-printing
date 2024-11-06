@@ -113,3 +113,42 @@ Content-Type: application/json
   "TrnId": "8617",
   "amountSaved": 200000
 }
+
+
+### Get unreconciled savings
+GET http://localhost:3060/savings/unreconciled
+Content-Type: application/json
+
+
+### Get unreconciled savings
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/savings/unreconciled
+Content-Type: application/json
+
+
+### Get all savings records
+GET http://localhost:3060/savings/all
+Content-Type: application/json
+
+
+### Get all savings records
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/savings/all
+Content-Type: application/json
+
+
+### Reconcile savings records
+POST http://localhost:3060/savings/reconcile
+Content-Type: application/json
+
+{
+  "id": [12, 14,16] 
+
+}
+
+
+### Reconcile savings records
+POST https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/savings/reconcile
+Content-Type: application/json
+
+{
+  "TrnIds": [8617, 8618]  // Example IDs; replace with actual TrnIds as needed
+}
