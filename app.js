@@ -543,6 +543,82 @@ app.get('/search-savings-transaction', async (req, res) => {
 //     connection.release();
 //   }
 // });
+
+
+// app.post('/create-saving', async (req, res) => {
+//   const { TrnId, amountSaved } = req.body;
+
+//   if (!TrnId || !amountSaved || amountSaved <= 0) {
+//     return res.status(400).json({ message: 'Invalid TrnId or amount saved.' });
+//   }
+
+//   const connection = await connect.getConnection();
+
+//   try {
+//     await connection.beginTransaction();
+
+//     // Fetch company details
+//     const companyDetailsQuery = `SELECT the_company_name, the_company_branch, the_company_box_number FROM the_company_datails `;
+//     const [companyDetails] = await connection.query(companyDetailsQuery);
+
+//     if (companyDetails.length === 0) {
+//       await connection.rollback();
+//       return res.status(404).json({ message: 'Company details not found.' });
+//     }
+
+//     const updateBalanceQuery = `
+//       UPDATE transactions
+//       SET SavingsRunningBalance = SavingsRunningBalance + ?
+//       WHERE TrnId = ?
+//     `;
+//     await connection.query(updateBalanceQuery, [amountSaved, TrnId]);
+
+//     const getUpdatedBalanceQuery = `SELECT SavingsRunningBalance, AccountNumber, AccountName FROM transactions WHERE TrnId = ?`;
+//     const [rows] = await connection.query(getUpdatedBalanceQuery, [TrnId]);
+
+//     if (rows.length === 0) {
+//       await connection.rollback();
+//       return res.status(404).json({ message: 'Transaction ID not found.' });
+//     }
+
+//     const updatedBalance = rows[0].SavingsRunningBalance;
+//     const accountNumber = rows[0].AccountNumber;
+//     const accountName = rows[0].AccountName;
+
+//     const insertHistoryQuery = `
+//       INSERT INTO savings_history (
+//         TrnId, TrnDate, AccountNumber, AccountName, SavingsPaid, SavingsRunningBalance, RECONCILED, created_at
+//       ) VALUES (?, NOW(), ?, ?, ?, ?, FALSE, UTC_TIMESTAMP())
+//     `;
+//     await connection.query(insertHistoryQuery, [
+//       TrnId, accountNumber, accountName, amountSaved, updatedBalance
+//     ]);
+
+//     await connection.commit();
+
+//     // Prepare receipt data including company and transaction details
+//     const receiptData = {
+//       theCompanyName: companyDetails[0].the_company_name,
+//       theCompanyBranch: companyDetails[0].the_company_branch,
+//       theCompanyBoxNumber: companyDetails[0].the_company_box_number,
+//       AccountName: accountName,
+//       SavingsPaid: amountSaved,
+//       SavingsRunningBalance: updatedBalance,
+//       Date: new Date().toISOString()
+//     };
+
+//     // Broadcast the receipt data to all connected clients via WebSocket
+//     io.emit('receiptData', receiptData);
+
+//     res.status(200).json({ message: 'Savings updated and receipt sent successfully.' });
+//   } catch (error) {
+//     await connection.rollback();
+//     console.error('Error updating savings:', error);
+//     res.status(500).json({ message: 'Server error while updating savings.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
 app.post('/create-saving', async (req, res) => {
   const { TrnId, amountSaved } = req.body;
 
@@ -605,10 +681,11 @@ app.post('/create-saving', async (req, res) => {
       Date: new Date().toISOString()
     };
 
-    // Broadcast the receipt data to all connected clients via WebSocket
-    io.emit('receiptData', receiptData);
-
-    res.status(200).json({ message: 'Savings updated and receipt sent successfully.' });
+    // Return the receipt data as the response
+    res.status(200).json({
+      message: 'Savings updated successfully.',
+      receiptData: receiptData
+    });
   } catch (error) {
     await connection.rollback();
     console.error('Error updating savings:', error);
