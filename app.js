@@ -619,6 +619,8 @@ app.get('/search-savings-transaction', async (req, res) => {
 //     connection.release();
 //   }
 // });
+
+
 app.post('/create-saving', async (req, res) => {
   const { TrnId, amountSaved } = req.body;
 
@@ -753,6 +755,245 @@ app.post('/savings/reconcile', async (req, res) => {
     connection.release();
   }
 });
+
+
+
+app.get('/get-all-loan-transactions', async (req, res) => {
+  console.log("Received request at /get-all-loan-transactions");
+
+  const selectQuery = `
+    SELECT loan_id, customer_name, customer_contact, loan_taken, principal_remaining, interest_remaining, total_remaining, total_inarrears, number_of_days_in_arrears, loan_status
+    FROM loan_portfolio
+  `;
+
+  try {
+    const [rows] = await connect.query(selectQuery);
+
+    if (rows.length > 0) {
+      res.status(200).json({
+        message: 'Loan data retrieved successfully.',
+        data: rows
+      });
+    } else {
+      res.status(404).json({ message: 'No loans found.' });
+    }
+  } catch (error) {
+    console.error('Error retrieving loan data:', error);
+    res.status(500).json({ message: 'Server error while retrieving loan data.' });
+  }
+});
+
+
+app.get('/get-all-loan-transactions-search', async (req, res) => {
+  console.log("Received request at /get-all-loan-transactions-search");
+
+  const searchTerm = req.query.term || '';
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 10;
+  const offset = (page - 1) * pageSize;
+
+  const selectQuery = `
+    SELECT loan_id, customer_name, customer_contact, loan_taken, principal_remaining, interest_remaining, total_remaining, total_inarrears, number_of_days_in_arrears, loan_status
+    FROM loan_portfolio
+    WHERE customer_name LIKE ? OR customer_contact LIKE ? OR loan_id LIKE ?
+    LIMIT ? OFFSET ?
+  `;
+
+  try {
+    const [rows] = await connect.query(selectQuery, [
+      `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, pageSize, offset
+    ]);
+
+    if (rows.length > 0) {
+      res.status(200).json({
+        message: 'Loan data retrieved successfully.',
+        data: rows,
+        pagination: {
+          currentPage: page,
+          pageSize: pageSize,
+          totalResults: rows.length  // Reflects current page results count
+        }
+      });
+    } else {
+      res.status(404).json({ message: 'No loans found.' });
+    }
+  } catch (error) {
+    console.error('Error retrieving loan data:', error);
+    res.status(500).json({ message: 'Server error while retrieving loan data.' });
+  }
+});
+
+
+app.get('/search-loan-transaction', async (req, res) => {
+  console.log("Received request at /search-loan-transaction");
+
+  const searchTerm = req.query.term || '';
+
+  const selectQuery = `
+    SELECT loan_id, customer_name, customer_contact, loan_taken, principal_remaining, interest_remaining, total_remaining, total_inarrears, number_of_days_in_arrears, loan_status
+    FROM loan_portfolio
+    WHERE customer_name LIKE ? OR customer_contact LIKE ? OR loan_id LIKE ?
+  `;
+
+  try {
+    const [rows] = await connect.query(selectQuery, [
+      `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`
+    ]);
+
+    res.status(200).json({
+      message: 'Loan search completed successfully.',
+      data: rows
+    });
+
+    io.emit('loanSearchResults', rows);  // Emit loan search results via WebSocket
+  } catch (error) {
+    console.error('Error retrieving loan search results:', error);
+    res.status(500).json({ message: 'Server error while retrieving loan search results.' });
+  }
+});
+
+
+app.post('/create-loan-payment', async (req, res) => {
+  const { loan_id, amountPaid } = req.body;
+
+  if (!loan_id || !amountPaid || amountPaid <= 0) {
+    return res.status(400).json({ message: 'Invalid loan ID or amount paid.' });
+  }
+
+  const connection = await connect.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // Fetch company details (if applicable)
+    const companyDetailsQuery = `SELECT the_company_name, the_company_branch, the_company_box_number FROM the_company_datails`;
+    const [companyDetails] = await connection.query(companyDetailsQuery);
+
+    if (companyDetails.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Company details not found.' });
+    }
+
+    // Fetch the current loan balance and check if the loan exists
+    const getLoanBalanceQuery = `SELECT total_remaining, customer_name, customer_contact FROM loan_portfolio WHERE loan_id = ?`;
+    const [loanRows] = await connection.query(getLoanBalanceQuery, [loan_id]);
+
+    if (loanRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Loan ID not found.' });
+    }
+
+    const updatedBalance = loanRows[0].total_remaining - amountPaid;
+    const customerName = loanRows[0].customer_name;
+    const customerContact = loanRows[0].customer_contact;
+
+    // Update the remaining balance in the loan portfolio
+    const updateLoanBalanceQuery = `
+      UPDATE loan_portfolio
+      SET total_remaining = ?
+      WHERE loan_id = ?
+    `;
+    await connection.query(updateLoanBalanceQuery, [updatedBalance, loan_id]);
+
+    // Insert payment details into the loan_paid table
+    const insertPaymentHistoryQuery = `
+      INSERT INTO loan_paid (
+        customer_number, customer_name, customer_contact, amount_paid, outstanding_total_amount, trxn_date, Reconciled
+      ) VALUES (?, ?, ?, ?, ?, NOW(), 0)
+    `;
+    await connection.query(insertPaymentHistoryQuery, [
+      loan_id, customerName, customerContact, amountPaid, updatedBalance
+    ]);
+
+    await connection.commit();
+
+    // Prepare receipt data including company and loan details
+    const receiptData = {
+      theCompanyName: companyDetails[0].the_company_name,
+      theCompanyBranch: companyDetails[0].the_company_branch,
+      theCompanyBoxNumber: companyDetails[0].the_company_box_number,
+      customerName: customerName,
+      amountPaid: amountPaid,
+      outstandingTotalAmount: updatedBalance,
+      Date: new Date().toISOString()
+    };
+
+    // Return the receipt data as the response
+    res.status(200).json({
+      message: 'Loan payment recorded successfully.',
+      receiptData: receiptData
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error recording loan payment:', error);
+    res.status(500).json({ message: 'Server error while recording loan payment.' });
+  } finally {
+    connection.release();
+  }
+});
+
+
+
+app.get('/loans/unreconciled', async (req, res) => {
+  const connection = await connect.getConnection();
+
+  try {
+    const query = `SELECT * FROM loan_paid WHERE Reconciled = 0`;
+    const [unreconciledLoans] = await connection.query(query);
+
+    res.status(200).json(unreconciledLoans);
+  } catch (error) {
+    console.error('Error fetching unreconciled loans:', error);
+    res.status(500).json({ message: 'Server error while fetching unreconciled loans.' });
+  } finally {
+    connection.release();
+  }
+});
+
+
+app.get('/loans/all', async (req, res) => {
+  const connection = await connect.getConnection();
+
+  try {
+    const query = `SELECT * FROM loan_paid`;
+    const [allLoans] = await connection.query(query);
+
+    res.status(200).json(allLoans);
+  } catch (error) {
+    console.error('Error fetching all loan records:', error);
+    res.status(500).json({ message: 'Server error while fetching all loan records.' });
+  } finally {
+    connection.release();
+  }
+});
+
+
+app.post('/loans/reconcile', async (req, res) => {
+  const { id } = req.body;  // Expect an array of loan payment IDs to reconcile
+
+  if (!id || !Array.isArray(id) || id.length === 0) {
+    return res.status(400).json({ message: 'Invalid or missing IDs.' });
+  }
+
+  const connection = await connect.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const query = `UPDATE loan_paid SET Reconciled = 1 WHERE id IN (?)`;
+    await connection.query(query, [id]);
+
+    await connection.commit();
+    res.status(200).json({ message: 'Loan payments marked as reconciled successfully.' });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error reconciling loan payments:', error);
+    res.status(500).json({ message: 'Server error while reconciling loan payments.' });
+  } finally {
+    connection.release();
+  }
+});
+
 
 
 

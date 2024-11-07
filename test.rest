@@ -149,6 +149,98 @@ Content-Type: application/json
 POST https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/savings/reconcile
 Content-Type: application/json
 
+
 {
-  "TrnIds": [8617, 8618]  // Example IDs; replace with actual TrnIds as needed
+  "id": [12, 14,16] 
+
+}
+
+
+### Get all loan transactions
+GET http://localhost:3060/get-all-loan-transactions
+Content-Type: application/json
+
+
+### Get all loan transactions
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/get-all-loan-transactions
+Content-Type: application/json
+
+
+
+### Get loan transactions with search and pagination
+GET http://localhost:3060/get-all-loan-transactions-search?term=Puddy&page=1&pageSize=10
+Content-Type: application/json
+
+### Get loan transactions with search and pagination
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/get-all-loan-transactions-search?term=Puddy&page=1&pageSize=10
+Content-Type: application/json
+
+
+### Search loan transactions
+GET http://localhost:3060/search-loan-transaction?term=Junda
+Content-Type: application/json
+
+
+
+### Search loan transactions
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/search-loan-transaction?term=Junda
+Content-Type: application/json
+
+
+### Create loan payment
+POST http://localhost:3060/create-loan-payment
+Content-Type: application/json
+
+{
+  "loan_id": "newloan05502015910",  
+  "amountPaid": 10000000.00  
+}
+
+
+### Create loan payment
+POST https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/create-loan-payment
+Content-Type: application/json
+
+{
+  "loan_id": "newloan05502015910",  
+  "amountPaid": 10000000.00  
+}
+
+
+### Get unreconciled loan payments
+GET http://localhost:3060/loans/unreconciled
+Content-Type: application/json
+
+
+### Get unreconciled loan payments
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/loans/unreconciled
+Content-Type: application/json
+
+
+
+### Get all loan payments
+GET http://localhost:3060/loans/all
+Content-Type: application/json
+
+
+### Get all loan payments
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/loans/all
+Content-Type: application/json
+
+
+### Reconcile loan payments
+POST http://localhost:3060/loans/reconcile
+Content-Type: application/json
+
+{
+  "id": [1, 2, 3]  
+}
+
+
+### Reconcile loan payments
+POST https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/loans/reconcile
+Content-Type: application/json
+
+{
+  "id": [1, 2, 3]  
 }
