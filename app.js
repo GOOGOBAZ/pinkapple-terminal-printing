@@ -5,6 +5,11 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const { connect } = require('./dbConnector'); // Import the MySQL connection pool
 const bodyParser = require('body-parser');
+const bcrypt = require('bcrypt'); // If using hashed passwords
+const jwt = require('jsonwebtoken'); // To generate a token for authenticated users
+
+// Secret key for JWT (store securely in production)
+const JWT_SECRET = process.env.ACCESS_TOKEN_SECRETE || 'your_jwt_secret';
 
 const app = express();
 const server = http.createServer(app);
@@ -994,6 +999,60 @@ app.post('/loans/reconcile', async (req, res) => {
   }
 });
 
+
+
+// Authentication route
+app.post('/login', async (req, res) => {
+  const { user_id, p_word_login } = req.body;
+
+  // Validate input
+  if (!user_id || !p_word_login) {
+    return res.status(400).json({ message: 'User ID and password are required.' });
+  }
+
+  const connection = await connect.getConnection();
+
+  try {
+    // Fetch user details from the log_in table
+    const query = `SELECT user_id, p_word_login, account_name, role FROM log_in WHERE user_id = ?`;
+    const [userRows] = await connection.query(query, [user_id]);
+
+    // Check if user exists
+    if (userRows.length === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const user = userRows[0];
+
+    // Verify password (use bcrypt.compare if passwords are hashed)
+    if (user.p_word_login !== p_word_login) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    // Generate JWT token (set expiration as needed, e.g., '1h' for 1 hour)
+    const token = jwt.sign(
+      { user_id: user.user_id, account_name: user.account_name, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // Send response with token
+    res.status(200).json({
+      message: 'Login successful',
+      token,
+      user: {
+        user_id: user.user_id,
+        account_name: user.account_name,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Error during authentication:', error);
+    res.status(500).json({ message: 'Server error during authentication.' });
+  } finally {
+    connection.release();
+  }
+});
 
 
 
