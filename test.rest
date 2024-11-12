@@ -72,11 +72,17 @@ Content-Type: application/json
 
 
 
+
+
+
 ### Get Paginated Transaction Data with Search
 GET http://localhost:3060/get-all-savings-transaction-search?term=Natamba&page=1&pageSize=1000
 Content-Type: application/json
 
 
+### Get Paginated Transaction Data with Search
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/get-all-savings-transaction-search?term=Natamba&page=1&pageSize=1000
+Content-Type: application/json
 
 ### Search Savings Transaction
 GET http://localhost:3060/search-savings-transaction?term=Naha
@@ -99,10 +105,6 @@ Content-Type: application/json
 }
 
 
-
-### Get Transaction by TrnId
-POST https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/create-saving
-Content-Type: application/json
 
 
 ### Create Saving Transaction
