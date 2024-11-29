@@ -702,12 +702,60 @@ app.post('/create-saving', async (req, res) => {
   }
 });
 
+// app.get('/savings/unreconciled', async (req, res) => {
+//   const connection = await connect.getConnection();
+
+//   try {
+//     const query = `SELECT * FROM savings_history WHERE Reconciled = 0`;
+//     const [unreconciledSavings] = await connection.query(query);
+
+//     res.status(200).json(unreconciledSavings);
+//   } catch (error) {
+//     console.error('Error fetching unreconciled savings:', error);
+//     res.status(500).json({ message: 'Server error while fetching unreconciled savings.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
+
+
+// app.get('/savings/all', async (req, res) => {
+//   const connection = await connect.getConnection();
+
+//   try {
+//     const query = `SELECT * FROM savings_history`;
+//     const [allSavings] = await connection.query(query);
+
+//     res.status(200).json(allSavings);
+//   } catch (error) {
+//     console.error('Error fetching all savings records:', error);
+//     res.status(500).json({ message: 'Server error while fetching all savings records.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
 app.get('/savings/unreconciled', async (req, res) => {
   const connection = await connect.getConnection();
 
   try {
     const query = `SELECT * FROM savings_history WHERE Reconciled = 0`;
     const [unreconciledSavings] = await connection.query(query);
+
+    // Calculate totals for SavingsPaid
+    const totalsRow = {
+      id: 'Totals',
+      TrnId: null,
+      TrnDate: null,
+      AccountNumber: null,
+      AccountName: 'Total',
+      SavingsPaid: unreconciledSavings.reduce((sum, row) => sum + parseFloat(row.SavingsPaid || 0), 0).toFixed(2),
+      SavingsRunningBalance: null,
+      RECONCILED: null,
+      created_at: null,
+    };
+
+    // Append totals row
+    unreconciledSavings.push(totalsRow);
 
     res.status(200).json(unreconciledSavings);
   } catch (error) {
@@ -718,13 +766,28 @@ app.get('/savings/unreconciled', async (req, res) => {
   }
 });
 
-
 app.get('/savings/all', async (req, res) => {
   const connection = await connect.getConnection();
 
   try {
     const query = `SELECT * FROM savings_history`;
     const [allSavings] = await connection.query(query);
+
+    // Calculate totals for SavingsPaid
+    const totalsRow = {
+      id: 'Totals',
+      TrnId: null,
+      TrnDate: null,
+      AccountNumber: null,
+      AccountName: 'Total',
+      SavingsPaid: allSavings.reduce((sum, row) => sum + parseFloat(row.SavingsPaid || 0), 0).toFixed(2),
+      SavingsRunningBalance: null,
+      RECONCILED: null,
+      created_at: null,
+    };
+
+    // Append totals row
+    allSavings.push(totalsRow);
 
     res.status(200).json(allSavings);
   } catch (error) {
@@ -734,6 +797,7 @@ app.get('/savings/all', async (req, res) => {
     connection.release();
   }
 });
+
 
 app.post('/savings/reconcile', async (req, res) => {
   const { id } = req.body;  // Expect an array of IDs to be reconciled
@@ -937,14 +1001,27 @@ app.post('/create-loan-payment', async (req, res) => {
   }
 });
 
-
-
 app.get('/loans/unreconciled', async (req, res) => {
   const connection = await connect.getConnection();
 
   try {
-    const query = `SELECT * FROM loan_paid WHERE Reconciled = 0`;
+    const query = `SELECT * FROM loan_paid WHERE reconciled = 0`;
     const [unreconciledLoans] = await connection.query(query);
+
+    // Calculate totals for amount_paid
+    const totalsRow = {
+      id: 'Totals',
+      customer_number: null,
+      customer_name: 'Total',
+      customer_contact: null,
+      amount_paid: unreconciledLoans.reduce((sum, row) => sum + parseFloat(row.amount_paid || 0), 0).toFixed(2),
+      outstanding_total_amount: null,
+      trxn_date: null,
+      reconciled: null,
+    };
+
+    // Append totals row
+    unreconciledLoans.push(totalsRow);
 
     res.status(200).json(unreconciledLoans);
   } catch (error) {
@@ -955,13 +1032,27 @@ app.get('/loans/unreconciled', async (req, res) => {
   }
 });
 
-
 app.get('/loans/all', async (req, res) => {
   const connection = await connect.getConnection();
 
   try {
     const query = `SELECT * FROM loan_paid`;
     const [allLoans] = await connection.query(query);
+
+    // Calculate totals for amount_paid
+    const totalsRow = {
+      id: 'Totals',
+      customer_number: null,
+      customer_name: 'Total',
+      customer_contact: null,
+      amount_paid: allLoans.reduce((sum, row) => sum + parseFloat(row.amount_paid || 0), 0).toFixed(2),
+      outstanding_total_amount: null,
+      trxn_date: null,
+      reconciled: null,
+    };
+
+    // Append totals row
+    allLoans.push(totalsRow);
 
     res.status(200).json(allLoans);
   } catch (error) {
@@ -971,6 +1062,40 @@ app.get('/loans/all', async (req, res) => {
     connection.release();
   }
 });
+
+
+// app.get('/loans/unreconciled', async (req, res) => {
+//   const connection = await connect.getConnection();
+
+//   try {
+//     const query = `SELECT * FROM loan_paid WHERE Reconciled = 0`;
+//     const [unreconciledLoans] = await connection.query(query);
+
+//     res.status(200).json(unreconciledLoans);
+//   } catch (error) {
+//     console.error('Error fetching unreconciled loans:', error);
+//     res.status(500).json({ message: 'Server error while fetching unreconciled loans.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
+
+
+// app.get('/loans/all', async (req, res) => {
+//   const connection = await connect.getConnection();
+
+//   try {
+//     const query = `SELECT * FROM loan_paid`;
+//     const [allLoans] = await connection.query(query);
+
+//     res.status(200).json(allLoans);
+//   } catch (error) {
+//     console.error('Error fetching all loan records:', error);
+//     res.status(500).json({ message: 'Server error while fetching all loan records.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
 
 
 app.post('/loans/reconcile', async (req, res) => {
