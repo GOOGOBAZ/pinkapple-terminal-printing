@@ -3463,7 +3463,7 @@ app.get('/company-details', async (req, res) => {
          created_at,
          updated_at
        FROM company_details
-       ORDER BY company_detail_id DESC`
+       ORDER BY company_detail_id ASC`
     );
     return res.status(200).json({ data: rows });
   } catch (err) {
