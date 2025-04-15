@@ -3092,6 +3092,131 @@ app.get('/users', async (req, res) => {
  *    payment_status ('PAID' | 'NOT_PAID', optional → defaults to NOT_PAID)
  *    user_id        (int,    optional)
  ****************************************************************/
+// app.post('/company-details/save', async (req, res) => {
+//   const connection = await connect.getConnection();
+
+//   try {
+//     await connection.beginTransaction();
+
+//     /* ─────────────────── 1. unpack & validate ────────────────── */
+//     const {
+//       company_name,
+//       branch_name,
+//       box_number,
+//       payment_status,
+//       user_id
+//     } = req.body;
+
+//     if (!company_name || !branch_name) {
+//       await connection.rollback();
+//       return res.status(400).json({
+//         message: 'company_name and branch_name are required.'
+//       });
+//     }
+
+//     // normalise / default the payment flag
+//     const payFlag =
+//       payment_status && payment_status.toUpperCase() === 'PAID'
+//         ? 'PAID'
+//         : 'NOT_PAID';
+
+//     /* ─────────────────── 2. do we already have this branch? ──── */
+//     const [rows] = await connection.query(
+//       `SELECT company_detail_id
+//          FROM company_details
+//         WHERE company_name = ?
+//           AND branch_name  = ?
+//         LIMIT 1`,
+//       [company_name, branch_name]
+//     );
+
+//     let record;                       // ← the row we will return
+//     if (rows.length) {
+//       /* ================ UPDATE path =========================== */
+//       const id = rows[0].company_detail_id;
+
+//       await connection.query(
+//         `UPDATE company_details
+//             SET box_number         = COALESCE(?, box_number),
+//                 payment_status     = ?,
+//                 payment_verified_at= CASE
+//                                         WHEN ? = 'PAID' THEN CURRENT_TIMESTAMP
+//                                         ELSE payment_verified_at
+//                                      END,
+//                 user_id            = ?
+//           WHERE company_detail_id  = ?`,
+//         [
+//           box_number || null,
+//           payFlag,
+//           payFlag,
+//           user_id || null,
+//           id
+//         ]
+//       );
+
+//       const [updated] = await connection.query(
+//         `SELECT * FROM company_details WHERE company_detail_id = ?`,
+//         [id]
+//       );
+//       record = updated[0];
+//     } else {
+//       /* ================ INSERT path =========================== */
+//       const verifiedAt =
+//         payFlag === 'PAID' ? new Date() : null;   // or leave NULL
+
+//       const [result] = await connection.query(
+//         `INSERT INTO company_details (
+//            company_name,
+//            branch_name,
+//            box_number,
+//            payment_status,
+//            payment_verified_at,
+//            user_id
+//          )
+//          VALUES ( ?, ?, ?, ?, ?, ? )`,
+//         [
+//           company_name,
+//           branch_name,
+//           box_number || null,
+//           payFlag,
+//           verifiedAt,
+//           user_id || null
+//         ]
+//       );
+
+//       const [inserted] = await connection.query(
+//         `SELECT * FROM company_details WHERE company_detail_id = ?`,
+//         [result.insertId]
+//       );
+//       record = inserted[0];
+//     }
+
+//     await connection.commit();
+
+//     res.status(200).json({
+//       message: rows.length
+//         ? 'Company record updated successfully.'
+//         : 'New company record inserted successfully.',
+//       data: record
+//     });
+//   } catch (err) {
+//     await connection.rollback();
+//     console.error('Error saving company_details:', err);
+//     res.status(500).json({ message: 'Server error while saving company details.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
+
+/****************************************************************
+ *  POST /company-details/save
+ *  Body parameters
+ *    company_name   (string, required)
+ *    branch_name    (string, required)
+ *    box_number     (string, optional)
+ *    payment_status ('PAID' | 'NOT_PAID', optional → defaults to NOT_PAID)
+ *    user_id        (int,    optional)
+ ****************************************************************/
 app.post('/company-details/save', async (req, res) => {
   const connection = await connect.getConnection();
 
@@ -3126,6 +3251,7 @@ app.post('/company-details/save', async (req, res) => {
          FROM company_details
         WHERE company_name = ?
           AND branch_name  = ?
+        ORDER BY company_detail_id ASC   -- ⬅ sort by id (ascending)
         LIMIT 1`,
       [company_name, branch_name]
     );
@@ -3207,7 +3333,6 @@ app.post('/company-details/save', async (req, res) => {
     connection.release();
   }
 });
-
 
 // /**
 //  * GET /company-details/licence-check
