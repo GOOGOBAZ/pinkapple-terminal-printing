@@ -2093,18 +2093,12 @@ app.post('/loans/reconcile', async (req, res) => {
 // const jwt = require('jsonwebtoken');
 // const { JWT_SECRET } = require('./config'); // or however you store your secret
 
-
 app.post('/save-company', async (req, res) => {
-  // Acquire a connection from your pool
   const connection = await connect.getConnection();
 
   try {
     await connection.beginTransaction();
 
-    console.log("Received request at /save-company");
-    console.log(req.body);
-
-    // 1. Destructure the request body
     const {
       the_company_name,
       the_company_branch,
@@ -2114,7 +2108,7 @@ app.post('/save-company', async (req, res) => {
       user_id
     } = req.body;
 
-    // 2. Validate the required fields
+    /* ---------- 1. validation ---------- */
     if (!company_name || !branch_name || !user_id) {
       await connection.rollback();
       return res.status(400).json({
@@ -2122,85 +2116,200 @@ app.post('/save-company', async (req, res) => {
       });
     }
 
-    // 3. Check if record already exists
-    const checkQuery = `
-      SELECT *
-      FROM the_company_datails
-      WHERE company_name = ?
-        AND branch_name = ?
-        AND user_id = ?
-      LIMIT 1
-    `;
-    const [existingRows] = await connection.query(checkQuery, [
-      company_name,
-      branch_name,
-      user_id
-    ]);
+    /* ---------- 2. does a row already exist? ---------- */
+    const [rows] = await connection.query(
+      `SELECT the_company_details_id
+         FROM the_company_datails
+        WHERE company_name = ?
+          AND branch_name  = ?
+          AND user_id      = ?
+        LIMIT 1`,
+      [company_name, branch_name, user_id]
+    );
 
     let companyRecord;
-    if (existingRows.length > 0) {
-      // Record already exists
-      companyRecord = existingRows[0];
+    if (rows.length) {
+      /* ---------- 2a. UPDATE path ---------- */
+      const id = rows[0].the_company_details_id;
+
+      await connection.query(
+        `UPDATE the_company_datails
+            SET the_company_name       = ?,
+                the_company_branch     = ?,
+                the_company_box_number = ?,
+                update_at              = CURRENT_TIMESTAMP
+          WHERE the_company_details_id = ?`,
+        [
+          the_company_name       || 'Edad Coin SMS-Ltd',
+          the_company_branch     || 'Edad Coin SMS-Ltd',
+          the_company_box_number || 'Edad Coin SMS-Ltd',
+          id
+        ]
+      );
+
+      /* grab the fresh row */
+      const [updated] = await connection.query(
+        `SELECT * FROM the_company_datails
+          WHERE the_company_details_id = ?`,
+        [id]
+      );
+      companyRecord = updated[0];
     } else {
-      // 4. Insert a new record
-      const insertQuery = `
-        INSERT INTO the_company_datails (
-          the_company_name,
-          the_company_branch,
-          the_company_box_number,
-          created_at,
-          update_at,
+      /* ---------- 2b. INSERT path ---------- */
+      const [result] = await connection.query(
+        `INSERT INTO the_company_datails (
+           the_company_name,
+           the_company_branch,
+           the_company_box_number,
+           created_at,
+           update_at,
+           company_name,
+           branch_name,
+           user_id
+         )
+         VALUES ( ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ? )`,
+        [
+          the_company_name       || 'Edad Coin SMS-Ltd',
+          the_company_branch     || 'Edad Coin SMS-Ltd',
+          the_company_box_number || 'Edad Coin SMS-Ltd',
           company_name,
           branch_name,
           user_id
-        )
-        VALUES (
-          ?, ?, ?, 
-          CURRENT_TIMESTAMP, 
-          CURRENT_TIMESTAMP, 
-          ?, ?, ?
-        )
-      `;
-      const [result] = await connection.query(insertQuery, [
-        the_company_name  || 'Edad Coin SMS-Ltd',
-        the_company_branch || 'Edad Coin SMS-Ltd',
-        the_company_box_number || 'Edad Coin SMS-Ltd',
-        company_name,
-        branch_name,
-        user_id
-      ]);
+        ]
+      );
 
-      // 5. Retrieve the newly inserted row
-      const [newRows] = await connection.query(
-        `SELECT * FROM the_company_datails 
-         WHERE the_company_details_id = ?`,
+      const [inserted] = await connection.query(
+        `SELECT * FROM the_company_datails
+          WHERE the_company_details_id = ?`,
         [result.insertId]
       );
-      companyRecord = newRows[0];
+      companyRecord = inserted[0];
     }
 
-    // 6. Commit the transaction
     await connection.commit();
 
-    // 7. Return the record (existing or newly inserted)
     res.status(200).json({
-      message: existingRows.length > 0
-        ? 'Company record already exists. Returning existing record.'
+      message: rows.length
+        ? 'Company record updated successfully.'
         : 'New company record inserted successfully.',
       data: companyRecord
     });
   } catch (error) {
-    // Roll back on error
     await connection.rollback();
     console.error('Error saving company record:', error);
-    res.status(500).json({
-      message: 'Server error while saving company record.'
-    });
+    res.status(500).json({ message: 'Server error while saving company record.' });
   } finally {
-    // Release the connection back to the pool
     connection.release();
   }
 });
+
+// app.post('/save-company', async (req, res) => {
+//   // Acquire a connection from your pool
+//   const connection = await connect.getConnection();
+
+//   try {
+//     await connection.beginTransaction();
+
+//     console.log("Received request at /save-company");
+//     console.log(req.body);
+
+//     // 1. Destructure the request body
+//     const {
+//       the_company_name,
+//       the_company_branch,
+//       the_company_box_number,
+//       company_name,
+//       branch_name,
+//       user_id
+//     } = req.body;
+
+//     // 2. Validate the required fields
+//     if (!company_name || !branch_name || !user_id) {
+//       await connection.rollback();
+//       return res.status(400).json({
+//         message: 'company_name, branch_name, and user_id are required.'
+//       });
+//     }
+
+//     // 3. Check if record already exists
+//     const checkQuery = `
+//       SELECT *
+//       FROM the_company_datails
+//       WHERE company_name = ?
+//         AND branch_name = ?
+//         AND user_id = ?
+//       LIMIT 1
+//     `;
+//     const [existingRows] = await connection.query(checkQuery, [
+//       company_name,
+//       branch_name,
+//       user_id
+//     ]);
+
+//     let companyRecord;
+//     if (existingRows.length > 0) {
+//       // Record already exists
+//       companyRecord = existingRows[0];
+//     } else {
+//       // 4. Insert a new record
+//       const insertQuery = `
+//         INSERT INTO the_company_datails (
+//           the_company_name,
+//           the_company_branch,
+//           the_company_box_number,
+//           created_at,
+//           update_at,
+//           company_name,
+//           branch_name,
+//           user_id
+//         )
+//         VALUES (
+//           ?, ?, ?, 
+//           CURRENT_TIMESTAMP, 
+//           CURRENT_TIMESTAMP, 
+//           ?, ?, ?
+//         )
+//       `;
+//       const [result] = await connection.query(insertQuery, [
+//         the_company_name  || 'Edad Coin SMS-Ltd',
+//         the_company_branch || 'Edad Coin SMS-Ltd',
+//         the_company_box_number || 'Edad Coin SMS-Ltd',
+//         company_name,
+//         branch_name,
+//         user_id
+//       ]);
+
+//       // 5. Retrieve the newly inserted row
+//       const [newRows] = await connection.query(
+//         `SELECT * FROM the_company_datails 
+//          WHERE the_company_details_id = ?`,
+//         [result.insertId]
+//       );
+//       companyRecord = newRows[0];
+//     }
+
+//     // 6. Commit the transaction
+//     await connection.commit();
+
+//     // 7. Return the record (existing or newly inserted)
+//     res.status(200).json({
+//       message: existingRows.length > 0
+//         ? 'Company record already exists. Returning existing record.'
+//         : 'New company record inserted successfully.',
+//       data: companyRecord
+//     });
+//   } catch (error) {
+//     // Roll back on error
+//     await connection.rollback();
+//     console.error('Error saving company record:', error);
+//     res.status(500).json({
+//       message: 'Server error while saving company record.'
+//     });
+//   } finally {
+//     // Release the connection back to the pool
+//     connection.release();
+//   }
+// });
 
 
 
