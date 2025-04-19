@@ -2412,9 +2412,153 @@ async function generateUniqueCodeInDB(connection, length = 4) {
 //   }
 // });
 
+// app.post('/save-login', async (req, res) => {
+//   const connection = await connect.getConnection();
+// console.log('Received request at /save-login');
+//   try {
+//     await connection.beginTransaction();
+
+//     /* 1. Destructure request body */
+//     const {
+//       username,
+//       password_hash,
+//       company_name,
+//       branch_name,
+//       local_user_id,
+//       title,
+//       first_name,
+//       last_name,
+//       birth_date,
+//       recruitement_date,
+//       line_manager,
+//       former_employment,
+//       role,
+//       creation_time,
+//       unique_user_code     // may be undefined / blank
+//     } = req.body;
+
+//     /* 2. Check if the row already exists */
+//     const [found] = await connection.query(
+//       `SELECT unique_user_code
+//          FROM log_in
+//         WHERE company_name  = ?
+//           AND branch_name   = ?
+//           AND local_user_id = ?
+//         LIMIT 1`,
+//       [company_name, branch_name, local_user_id]
+//     );
+
+//     let finalUniqueCode;          // value we will commit
+//     let action;                   // “inserted” | “updated”
+
+//     if (found.length === 0) {
+//       /* ---------- INSERT branch ---------- */
+//       finalUniqueCode =
+//         unique_user_code || (await generateUniqueCodeInDB(connection, 8));
+
+//       await connection.query(
+//         `INSERT INTO log_in (
+//            username, password_hash, company_name, branch_name, local_user_id,
+//            title, first_name, last_name, birth_date, recruitement_date,
+//            line_manager, former_employment, role, creation_time,
+//            unique_user_code
+//          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+//         [
+//           username,
+//           password_hash || null,
+//           company_name,
+//           branch_name,
+//           local_user_id,
+//           title || null,
+//           first_name || null,
+//           last_name || null,
+//           birth_date || null,
+//           recruitement_date || null,
+//           line_manager || null,
+//           former_employment || null,
+//           role || null,
+//           creation_time || null,
+//           finalUniqueCode
+//         ]
+//       );
+
+//       action = 'inserted';
+//     } else {
+//       /* ---------- UPDATE branch ---------- */
+//       finalUniqueCode = found[0].unique_user_code;   // keep existing
+
+//       await connection.query(
+//         `UPDATE log_in SET
+//            username          = ?,                -- in case it changed
+//            password_hash     = ?, 
+//            title             = ?,
+//            first_name        = ?,
+//            last_name         = ?,
+//            birth_date        = ?,
+//            recruitement_date = ?,
+//            line_manager      = ?,
+//            former_employment = ?,
+//            role              = ?,
+//            creation_time     = ?
+//          WHERE company_name  = ?
+//            AND branch_name   = ?
+//            AND local_user_id = ?`,
+//         [
+//           username,
+//           password_hash || null,
+//           title || null,
+//           first_name || null,
+//           last_name || null,
+//           birth_date || null,
+//           recruitement_date || null,
+//           line_manager || null,
+//           former_employment || null,
+//           role || null,
+//           creation_time || null,
+//           company_name,
+//           branch_name,
+//           local_user_id
+//         ]
+//       );
+
+//       action = 'updated';
+//     }
+
+//     /* 3. Fetch the fresh row */
+//     const [rowData] = await connection.query(
+//       `SELECT * FROM log_in
+//         WHERE company_name  = ?
+//           AND branch_name   = ?
+//           AND local_user_id = ?
+//         LIMIT 1`,
+//       [company_name, branch_name, local_user_id]
+//     );
+
+//     await connection.commit();
+
+//     res.status(200).json({
+//       message: `User ${action} successfully.`,
+//       data: rowData[0] || {},
+//       unique_user_code: finalUniqueCode
+//     });
+//   } catch (err) {
+//     await connection.rollback();
+//     console.error('save-login error:', err);
+//     res.status(500).json({ message: 'Server error while saving user record.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
+
+
+// make sure you have this unique constraint in your schema:
+// ALTER TABLE log_in
+//   ADD UNIQUE KEY uq_comp_branch_user (company_name, branch_name, local_user_id);
+
 app.post('/save-login', async (req, res) => {
   const connection = await connect.getConnection();
-console.log('Received request at /save-login');
+  console.log('Received request at /save-login');
+
   try {
     await connection.beginTransaction();
 
@@ -2434,112 +2578,93 @@ console.log('Received request at /save-login');
       former_employment,
       role,
       creation_time,
-      unique_user_code     // may be undefined / blank
+      unique_user_code    // optional: if you want to override existing
     } = req.body;
 
-    /* 2. Check if the row already exists */
-    const [found] = await connection.query(
-      `SELECT unique_user_code
-         FROM log_in
-        WHERE company_name  = ?
-          AND branch_name   = ?
-          AND local_user_id = ?
-        LIMIT 1`,
-      [company_name, branch_name, local_user_id]
-    );
-
-    let finalUniqueCode;          // value we will commit
-    let action;                   // “inserted” | “updated”
-
-    if (found.length === 0) {
-      /* ---------- INSERT branch ---------- */
-      finalUniqueCode =
-        unique_user_code || (await generateUniqueCodeInDB(connection, 8));
-
-      await connection.query(
-        `INSERT INTO log_in (
-           username, password_hash, company_name, branch_name, local_user_id,
-           title, first_name, last_name, birth_date, recruitement_date,
-           line_manager, former_employment, role, creation_time,
-           unique_user_code
-         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [
-          username,
-          password_hash || null,
-          company_name,
-          branch_name,
-          local_user_id,
-          title || null,
-          first_name || null,
-          last_name || null,
-          birth_date || null,
-          recruitement_date || null,
-          line_manager || null,
-          former_employment || null,
-          role || null,
-          creation_time || null,
-          finalUniqueCode
-        ]
-      );
-
-      action = 'inserted';
-    } else {
-      /* ---------- UPDATE branch ---------- */
-      finalUniqueCode = found[0].unique_user_code;   // keep existing
-
-      await connection.query(
-        `UPDATE log_in SET
-           username          = ?,                -- in case it changed
-           password_hash     = ?, 
-           title             = ?,
-           first_name        = ?,
-           last_name         = ?,
-           birth_date        = ?,
-           recruitement_date = ?,
-           line_manager      = ?,
-           former_employment = ?,
-           role              = ?,
-           creation_time     = ?
-         WHERE company_name  = ?
-           AND branch_name   = ?
-           AND local_user_id = ?`,
-        [
-          username,
-          password_hash || null,
-          title || null,
-          first_name || null,
-          last_name || null,
-          birth_date || null,
-          recruitement_date || null,
-          line_manager || null,
-          former_employment || null,
-          role || null,
-          creation_time || null,
-          company_name,
-          branch_name,
-          local_user_id
-        ]
-      );
-
-      action = 'updated';
+    /* 2. Validate required keys */
+    if (!company_name || !branch_name || !local_user_id || !username) {
+      await connection.rollback();
+      return res.status(400).json({
+        message: 'company_name, branch_name, local_user_id and username are required.'
+      });
     }
 
-    /* 3. Fetch the fresh row */
-    const [rowData] = await connection.query(
+    /* 3. Build the upsert */
+    const upsertSql = `
+      INSERT INTO log_in (
+        username,
+        password_hash,
+        company_name,
+        branch_name,
+        local_user_id,
+        title,
+        first_name,
+        last_name,
+        birth_date,
+        recruitement_date,
+        line_manager,
+        former_employment,
+        role,
+        creation_time,
+        unique_user_code
+      ) VALUES (
+        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+      )
+      ON DUPLICATE KEY UPDATE
+        username          = VALUES(username),
+        password_hash     = VALUES(password_hash),
+        title             = VALUES(title),
+        first_name        = VALUES(first_name),
+        last_name         = VALUES(last_name),
+        birth_date        = VALUES(birth_date),
+        recruitement_date = VALUES(recruitement_date),
+        line_manager      = VALUES(line_manager),
+        former_employment = VALUES(former_employment),
+        role              = VALUES(role),
+        creation_time     = VALUES(creation_time),
+        unique_user_code  = 
+          IF(VALUES(unique_user_code) IS NOT NULL, 
+             VALUES(unique_user_code), 
+             unique_user_code
+          )
+    `;
+
+    // 4. Execute the upsert
+    await connection.query(upsertSql, [
+      username,
+      password_hash || null,
+      company_name,
+      branch_name,
+      local_user_id,
+      title || null,
+      first_name || null,
+      last_name || null,
+      birth_date || null,
+      recruitement_date || null,
+      line_manager || null,
+      former_employment || null,
+      role || null,
+      creation_time || null,
+      unique_user_code || null
+    ]);
+
+    /* 5. Fetch the fresh row */
+    const [rows] = await connection.query(
       `SELECT * FROM log_in
-        WHERE company_name  = ?
-          AND branch_name   = ?
-          AND local_user_id = ?
-        LIMIT 1`,
+         WHERE company_name  = ?
+           AND branch_name   = ?
+           AND local_user_id = ?
+         LIMIT 1`,
       [company_name, branch_name, local_user_id]
     );
 
     await connection.commit();
 
     res.status(200).json({
-      message: `User ${action} successfully.`,
-      data: rowData[0] || {},
-      unique_user_code: finalUniqueCode
+      message: rows.length
+        ? 'User record inserted/updated successfully.'
+        : 'User record upsert did not return a row.',
+      data: rows[0] || {}
     });
   } catch (err) {
     await connection.rollback();
