@@ -2026,6 +2026,33 @@ app.get('/loans/all', async (req, res) => {
 // });
 
 
+// app.post('/loans/reconcile', async (req, res) => {
+//   const { id } = req.body;  // Expect an array of loan payment IDs to reconcile
+
+//   if (!id || !Array.isArray(id) || id.length === 0) {
+//     return res.status(400).json({ message: 'Invalid or missing IDs.' });
+//   }
+
+//   const connection = await connect.getConnection();
+
+//   try {
+//     await connection.beginTransaction();
+
+//     const query = `UPDATE loan_paid SET Reconciled = 1 WHERE id IN (?)`;
+//     await connection.query(query, [id]);
+
+//     await connection.commit();
+//     res.status(200).json({ message: 'Loan payments marked as reconciled successfully.' });
+//   } catch (error) {
+//     await connection.rollback();
+//     console.error('Error reconciling loan payments:', error);
+//     res.status(500).json({ message: 'Server error while reconciling loan payments.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
+
+
 app.post('/loans/reconcile', async (req, res) => {
   const { id } = req.body;  // Expect an array of loan payment IDs to reconcile
 
@@ -2054,59 +2081,537 @@ app.post('/loans/reconcile', async (req, res) => {
 
 
 
-// Authentication route
-app.post('/login', async (req, res) => {
-  const { user_id, p_word_login } = req.body;
+// Example top imports (adjust paths as needed):
+// const connect = require('./db');    // or wherever your connect.getConnection() is exported
+// const jwt = require('jsonwebtoken');
+// const bcrypt = require('bcrypt');
+// const { JWT_SECRET } = require('./config'); // or however you store the secret
 
-  // Validate input
-  if (!user_id || !p_word_login) {
-    return res.status(400).json({ message: 'User ID and password are required.' });
-  }
+// Make sure you have the same imports / configuration as your '/login' route.
+// e.g.:
+// const connect = require('./db');         // or wherever you export connect.getConnection()
+// const jwt = require('jsonwebtoken');
+// const { JWT_SECRET } = require('./config'); // or however you store your secret
 
+
+app.post('/save-company', async (req, res) => {
+  // Acquire a connection from your pool
   const connection = await connect.getConnection();
 
   try {
-    // Fetch user details from the log_in table
-    const query = `SELECT user_id, p_word_login, account_name, role FROM log_in WHERE user_id = ?`;
-    const [userRows] = await connection.query(query, [user_id]);
+    await connection.beginTransaction();
 
-    // Check if user exists
-    if (userRows.length === 0) {
-      return res.status(404).json({ message: 'User not found.' });
+    // 1. Destructure the request body
+    const {
+      the_company_name,
+      the_company_branch,
+      the_company_box_number,
+      company_name,
+      branch_name,
+      user_id
+    } = req.body;
+
+    // 2. Validate the required fields
+    if (!company_name || !branch_name || !user_id) {
+      await connection.rollback();
+      return res.status(400).json({
+        message: 'company_name, branch_name, and user_id are required.'
+      });
     }
 
-    const user = userRows[0];
+    // 3. Check if record already exists
+    const checkQuery = `
+      SELECT *
+      FROM the_company_datails
+      WHERE company_name = ?
+        AND branch_name = ?
+        AND user_id = ?
+      LIMIT 1
+    `;
+    const [existingRows] = await connection.query(checkQuery, [
+      company_name,
+      branch_name,
+      user_id
+    ]);
 
-    // Verify password (use bcrypt.compare if passwords are hashed)
-    if (user.p_word_login !== p_word_login) {
-      return res.status(401).json({ message: 'Invalid credentials.' });
+    let companyRecord;
+    if (existingRows.length > 0) {
+      // Record already exists
+      companyRecord = existingRows[0];
+    } else {
+      // 4. Insert a new record
+      const insertQuery = `
+        INSERT INTO the_company_datails (
+          the_company_name,
+          the_company_branch,
+          the_company_box_number,
+          created_at,
+          update_at,
+          company_name,
+          branch_name,
+          user_id
+        )
+        VALUES (
+          ?, ?, ?, 
+          CURRENT_TIMESTAMP, 
+          CURRENT_TIMESTAMP, 
+          ?, ?, ?
+        )
+      `;
+      const [result] = await connection.query(insertQuery, [
+        the_company_name  || 'Edad Coin SMS-Ltd',
+        the_company_branch || 'Edad Coin SMS-Ltd',
+        the_company_box_number || 'Edad Coin SMS-Ltd',
+        company_name,
+        branch_name,
+        user_id
+      ]);
+
+      // 5. Retrieve the newly inserted row
+      const [newRows] = await connection.query(
+        `SELECT * FROM the_company_datails 
+         WHERE the_company_details_id = ?`,
+        [result.insertId]
+      );
+      companyRecord = newRows[0];
     }
 
-    // Generate JWT token (set expiration as needed, e.g., '1h' for 1 hour)
-    const token = jwt.sign(
-      { user_id: user.user_id, account_name: user.account_name, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+    // 6. Commit the transaction
+    await connection.commit();
 
-    // Send response with token
+    // 7. Return the record (existing or newly inserted)
     res.status(200).json({
-      message: 'Login successful',
-      token,
-      user: {
-        user_id: user.user_id,
-        account_name: user.account_name,
-        role: user.role
-      }
+      message: existingRows.length > 0
+        ? 'Company record already exists. Returning existing record.'
+        : 'New company record inserted successfully.',
+      data: companyRecord
     });
   } catch (error) {
-    console.error('Error during authentication:', error);
-    res.status(500).json({ message: 'Server error during authentication.' });
+    // Roll back on error
+    await connection.rollback();
+    console.error('Error saving company record:', error);
+    res.status(500).json({
+      message: 'Server error while saving company record.'
+    });
+  } finally {
+    // Release the connection back to the pool
+    connection.release();
+  }
+});
+
+
+
+/**
+ * Example of how you might import/require your DB connection module:
+ */
+// const connect = require('./db'); // <-- Adjust path as needed
+
+/**
+ * Helper: Generate a random numeric code of the specified length (digits only).
+ */
+function generateRandomCode(length = 4) {
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    // Math.random() * 10 gives a random number 0–9.99..., floor it to get an integer 0–9
+    code += Math.floor(Math.random() * 10);
+  }
+  return code;
+}
+
+
+/**
+ * Helper: Generate a truly unique code by checking the DB for collisions.
+ * - connection: an active DB connection
+ * - length: length of the random code to generate (defaults to 8)
+ */
+async function generateUniqueCodeInDB(connection, length = 4) {
+  let code;
+  let isUnique = false;
+
+  while (!isUnique) {
+    code = generateRandomCode(length);
+
+    // Check if this code is already in log_in
+    const [rows] = await connection.query(
+      'SELECT user_id FROM log_in WHERE unique_user_code = ? LIMIT 1',
+      [code]
+    );
+
+    if (rows.length === 0) {
+      // If no record has this code, it's unique in the DB
+      isUnique = true;
+    }
+  }
+
+  return code;
+}
+
+
+// // Authentication route
+// app.post('/login', async (req, res) => {
+//   const { user_id, p_word_login } = req.body;
+
+//   // Validate input
+//   if (!user_id || !p_word_login) {
+//     return res.status(400).json({ message: 'User ID and password are required.' });
+//   }
+
+//   const connection = await connect.getConnection();
+
+//   try {
+//     // Fetch user details from the log_in table
+//     const query = `SELECT user_id, p_word_login, account_name, role FROM log_in WHERE user_id = ?`;
+//     const [userRows] = await connection.query(query, [user_id]);
+
+//     // Check if user exists
+//     if (userRows.length === 0) {
+//       return res.status(404).json({ message: 'User not found.' });
+//     }
+
+//     const user = userRows[0];
+
+//     // Verify password (use bcrypt.compare if passwords are hashed)
+//     if (user.p_word_login !== p_word_login) {
+//       return res.status(401).json({ message: 'Invalid credentials.' });
+//     }
+
+//     // Generate JWT token (set expiration as needed, e.g., '1h' for 1 hour)
+//     const token = jwt.sign(
+//       { user_id: user.user_id, account_name: user.account_name, role: user.role },
+//       JWT_SECRET,
+//       { expiresIn: '1h' }
+//     );
+
+//     // Send response with token
+//     res.status(200).json({
+//       message: 'Login successful',
+//       token,
+//       user: {
+//         user_id: user.user_id,
+//         account_name: user.account_name,
+//         role: user.role
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Error during authentication:', error);
+//     res.status(500).json({ message: 'Server error during authentication.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
+
+app.post('/save-login', async (req, res) => {
+  const connection = await connect.getConnection();
+console.log('Received request at /save-login');
+  try {
+    await connection.beginTransaction();
+
+    /* 1. Destructure request body */
+    const {
+      username,
+      password_hash,
+      company_name,
+      branch_name,
+      local_user_id,
+      title,
+      first_name,
+      last_name,
+      birth_date,
+      recruitement_date,
+      line_manager,
+      former_employment,
+      role,
+      creation_time,
+      unique_user_code     // may be undefined / blank
+    } = req.body;
+
+    /* 2. Check if the row already exists */
+    const [found] = await connection.query(
+      `SELECT unique_user_code
+         FROM log_in
+        WHERE company_name  = ?
+          AND branch_name   = ?
+          AND local_user_id = ?
+        LIMIT 1`,
+      [company_name, branch_name, local_user_id]
+    );
+
+    let finalUniqueCode;          // value we will commit
+    let action;                   // “inserted” | “updated”
+
+    if (found.length === 0) {
+      /* ---------- INSERT branch ---------- */
+      finalUniqueCode =
+        unique_user_code || (await generateUniqueCodeInDB(connection, 8));
+
+      await connection.query(
+        `INSERT INTO log_in (
+           username, password_hash, company_name, branch_name, local_user_id,
+           title, first_name, last_name, birth_date, recruitement_date,
+           line_manager, former_employment, role, creation_time,
+           unique_user_code
+         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [
+          username,
+          password_hash || null,
+          company_name,
+          branch_name,
+          local_user_id,
+          title || null,
+          first_name || null,
+          last_name || null,
+          birth_date || null,
+          recruitement_date || null,
+          line_manager || null,
+          former_employment || null,
+          role || null,
+          creation_time || null,
+          finalUniqueCode
+        ]
+      );
+
+      action = 'inserted';
+    } else {
+      /* ---------- UPDATE branch ---------- */
+      finalUniqueCode = found[0].unique_user_code;   // keep existing
+
+      await connection.query(
+        `UPDATE log_in SET
+           username          = ?,                -- in case it changed
+           password_hash     = ?, 
+           title             = ?,
+           first_name        = ?,
+           last_name         = ?,
+           birth_date        = ?,
+           recruitement_date = ?,
+           line_manager      = ?,
+           former_employment = ?,
+           role              = ?,
+           creation_time     = ?
+         WHERE company_name  = ?
+           AND branch_name   = ?
+           AND local_user_id = ?`,
+        [
+          username,
+          password_hash || null,
+          title || null,
+          first_name || null,
+          last_name || null,
+          birth_date || null,
+          recruitement_date || null,
+          line_manager || null,
+          former_employment || null,
+          role || null,
+          creation_time || null,
+          company_name,
+          branch_name,
+          local_user_id
+        ]
+      );
+
+      action = 'updated';
+    }
+
+    /* 3. Fetch the fresh row */
+    const [rowData] = await connection.query(
+      `SELECT * FROM log_in
+        WHERE company_name  = ?
+          AND branch_name   = ?
+          AND local_user_id = ?
+        LIMIT 1`,
+      [company_name, branch_name, local_user_id]
+    );
+
+    await connection.commit();
+
+    res.status(200).json({
+      message: `User ${action} successfully.`,
+      data: rowData[0] || {},
+      unique_user_code: finalUniqueCode
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error('save-login error:', err);
+    res.status(500).json({ message: 'Server error while saving user record.' });
   } finally {
     connection.release();
   }
 });
 
+
+
+app.post('/login', async (req, res) => {
+  const { local_user_id, password, unique_user_code } = req.body;
+
+  // 1) Validate input
+  if (!local_user_id || !password || !unique_user_code) {
+    return res.status(400).json({
+      message: 'local_user_id, password, and unique_user_code are required.'
+    });
+  }
+
+  // Acquire connection
+  const connection = await connect.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // 2) Query the user by local_user_id + unique_user_code
+    const selectQuery = `
+      SELECT *
+      FROM log_in
+      WHERE local_user_id = ?
+        AND unique_user_code = ?
+      LIMIT 1
+    `;
+    const [rows] = await connection.query(selectQuery, [local_user_id, unique_user_code]);
+
+    if (rows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'User not found or invalid unique code.' });
+    }
+    const user = rows[0];
+
+    // 3) Plaintext password check (not secure for production)
+    if (user.password_hash !== password) {
+      await connection.rollback();
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    // 4) Update last_login
+    const updateQuery = `
+      UPDATE log_in
+      SET last_login = NOW()
+      WHERE local_user_id = ?
+        AND unique_user_code = ?
+    `;
+    await connection.query(updateQuery, [local_user_id, unique_user_code]);
+
+    // 5) Generate JWT, including title, role, company_name, etc.
+    const token = jwt.sign(
+      {
+        local_user_id: user.local_user_id,
+        title: user.title,                // <-- Include title here
+        role: user.role,
+        company_name: user.company_name,  
+        branch_name: user.branch_name     
+      },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    await connection.commit();
+
+    // 6) Return response
+    return res.status(200).json({
+      message: 'Login successful',
+      token,
+      user: {
+        local_user_id: user.local_user_id,
+        unique_user_code: user.unique_user_code,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        title: user.title,
+        role: user.role,
+        company_name: user.company_name,
+        branch_name: user.branch_name,
+        last_login: user.last_login
+      }
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error during login:', error);
+    return res.status(500).json({ message: 'Server error during login.' });
+  } finally {
+    connection.release();
+  }
+});
+
+
+
+/**
+ * GET /users
+ * ----------
+ * Retrieve user records from log_in.
+ *
+ * Optional query‑string filters:
+ *   • user_id
+ *   • username
+ *   • local_user_id
+ *   • unique_user_code
+ *   • company_name
+ *   • branch_name
+ *   • role
+ *
+ * If no filters are supplied the route returns every row
+ * (you can forbid that by checking `if (!hasFilters) …`).
+ */
+
+
+
+app.get('/users', async (req, res) => {
+  const {
+    user_id,
+    username,
+    local_user_id,
+    unique_user_code,
+    company_name,
+    branch_name,
+    role
+  } = req.query;
+
+  // Build WHERE clause dynamically
+  const conditions = [];
+  const params     = [];
+
+  if (user_id)           { conditions.push('user_id         = ?'); params.push(user_id); }
+  if (username)          { conditions.push('username        = ?'); params.push(username); }
+  if (local_user_id)     { conditions.push('local_user_id   = ?'); params.push(local_user_id); }
+  if (unique_user_code)  { conditions.push('unique_user_code = ?'); params.push(unique_user_code); }
+  if (company_name)      { conditions.push('company_name    = ?'); params.push(company_name); }
+  if (branch_name)       { conditions.push('branch_name     = ?'); params.push(branch_name); }
+  if (role)              { conditions.push('role            = ?'); params.push(role); }
+
+  // Optional safety: require at least one filter
+  // if (conditions.length === 0) {
+  //   return res.status(400).json({ message: 'At least one filter is required.' });
+  // }
+
+  let sql = `
+    SELECT
+      user_id,
+      username,
+      title,
+      first_name,
+      last_name,
+      role,
+      company_name,
+      branch_name,
+      local_user_id,
+      unique_user_code,
+      last_login
+    FROM log_in
+  `;
+  if (conditions.length) {
+    sql += 'WHERE ' + conditions.join(' AND ');
+  }
+
+  const connection = await connect.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [rows] = await connection.query(sql, params);
+
+    await connection.commit();
+    res.status(200).json({ count: rows.length, data: rows });
+  } catch (err) {
+    await connection.rollback();
+    console.error('Error fetching users:', err);
+    res.status(500).json({ message: 'Server error while fetching users.' });
+  } finally {
+    connection.release();
+  }
+});
 
 
 io.on('connection', (socket) => {
