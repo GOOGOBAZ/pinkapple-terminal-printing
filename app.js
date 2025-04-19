@@ -2101,6 +2101,9 @@ app.post('/save-company', async (req, res) => {
   try {
     await connection.beginTransaction();
 
+    console.log("Received request at /save-company");
+    console.log(req.body);
+
     // 1. Destructure the request body
     const {
       the_company_name,
