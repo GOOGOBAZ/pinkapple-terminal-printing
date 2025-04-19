@@ -2558,7 +2558,7 @@ async function generateUniqueCodeInDB(connection, length = 4) {
 app.post('/save-login', async (req, res) => {
   const connection = await connect.getConnection();
   console.log('Received request at /save-login');
-
+  console.log(req.body); // Log the request body for debugging
   try {
     await connection.beginTransaction();
 
