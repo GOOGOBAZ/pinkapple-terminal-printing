@@ -2555,14 +2555,138 @@ async function generateUniqueCodeInDB(connection, length = 4) {
 // ALTER TABLE log_in
 //   ADD UNIQUE KEY uq_comp_branch_user (company_name, branch_name, local_user_id);
 
+// app.post('/save-login', async (req, res) => {
+//   const connection = await connect.getConnection();
+//   console.log('Received request at /save-login');
+//   console.log(req.body); // Log the request body for debugging
+//   try {
+//     await connection.beginTransaction();
+
+//     /* 1. Destructure request body */
+//     const {
+//       username,
+//       password_hash,
+//       company_name,
+//       branch_name,
+//       local_user_id,
+//       title,
+//       first_name,
+//       last_name,
+//       birth_date,
+//       recruitement_date,
+//       line_manager,
+//       former_employment,
+//       role,
+//       creation_time,
+//       unique_user_code    // optional: if you want to override existing
+//     } = req.body;
+
+//     /* 2. Validate required keys */
+//     if (!company_name || !branch_name || !local_user_id || !username) {
+//       await connection.rollback();
+//       return res.status(400).json({
+//         message: 'company_name, branch_name, local_user_id and username are required.'
+//       });
+//     }
+
+//     /* 3. Build the upsert */
+//     const upsertSql = `
+//       INSERT INTO log_in (
+//         username,
+//         password_hash,
+//         company_name,
+//         branch_name,
+//         local_user_id,
+//         title,
+//         first_name,
+//         last_name,
+//         birth_date,
+//         recruitement_date,
+//         line_manager,
+//         former_employment,
+//         role,
+//         creation_time,
+//         unique_user_code
+//       ) VALUES (
+//         ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+//       )
+//       ON DUPLICATE KEY UPDATE
+//         username          = VALUES(username),
+//         password_hash     = VALUES(password_hash),
+//         title             = VALUES(title),
+//         first_name        = VALUES(first_name),
+//         last_name         = VALUES(last_name),
+//         birth_date        = VALUES(birth_date),
+//         recruitement_date = VALUES(recruitement_date),
+//         line_manager      = VALUES(line_manager),
+//         former_employment = VALUES(former_employment),
+//         role              = VALUES(role),
+//         creation_time     = VALUES(creation_time),
+//         unique_user_code  = 
+//           IF(VALUES(unique_user_code) IS NOT NULL, 
+//              VALUES(unique_user_code), 
+//              unique_user_code
+//           )
+//     `;
+
+//     // 4. Execute the upsert
+//     await connection.query(upsertSql, [
+//       username,
+//       password_hash || null,
+//       company_name,
+//       branch_name,
+//       local_user_id,
+//       title || null,
+//       first_name || null,
+//       last_name || null,
+//       birth_date || null,
+//       recruitement_date || null,
+//       line_manager || null,
+//       former_employment || null,
+//       role || null,
+//       creation_time || null,
+//       unique_user_code || null
+//     ]);
+
+//     /* 5. Fetch the fresh row */
+//     const [rows] = await connection.query(
+//       `SELECT * FROM log_in
+//          WHERE company_name  = ?
+//            AND branch_name   = ?
+//            AND local_user_id = ?
+//          LIMIT 1`,
+//       [company_name, branch_name, local_user_id]
+//     );
+
+//     await connection.commit();
+
+//     res.status(200).json({
+//       message: rows.length
+//         ? 'User record inserted/updated successfully.'
+//         : 'User record upsert did not return a row.',
+//       data: rows[0] || {}
+//     });
+//   } catch (err) {
+//     await connection.rollback();
+//     console.error('save-login error:', err);
+//     res.status(500).json({ message: 'Server error while saving user record.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
+
+// Ensure you have this unique constraint on log_in:
+// ALTER TABLE log_in
+//   ADD UNIQUE KEY uq_comp_branch_user (company_name, branch_name, local_user_id);
+
 app.post('/save-login', async (req, res) => {
   const connection = await connect.getConnection();
-  console.log('Received request at /save-login');
-  console.log(req.body); // Log the request body for debugging
+  console.log('Received request at /save-login:', req.body);
+
   try {
     await connection.beginTransaction();
 
-    /* 1. Destructure request body */
+    // 1. Destructure & validate
     const {
       username,
       password_hash,
@@ -2577,19 +2701,17 @@ app.post('/save-login', async (req, res) => {
       line_manager,
       former_employment,
       role,
-      creation_time,
-      unique_user_code    // optional: if you want to override existing
+      unique_user_code   // optional override if you want to set it explicitly
     } = req.body;
 
-    /* 2. Validate required keys */
-    if (!company_name || !branch_name || !local_user_id || !username) {
+    if (!username || !company_name || !branch_name || !local_user_id) {
       await connection.rollback();
       return res.status(400).json({
-        message: 'company_name, branch_name, local_user_id and username are required.'
+        message: 'username, company_name, branch_name and local_user_id are required.'
       });
     }
 
-    /* 3. Build the upsert */
+    // 2. Upsert in one statement
     const upsertSql = `
       INSERT INTO log_in (
         username,
@@ -2605,11 +2727,8 @@ app.post('/save-login', async (req, res) => {
         line_manager,
         former_employment,
         role,
-        creation_time,
         unique_user_code
-      ) VALUES (
-        ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
-      )
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       ON DUPLICATE KEY UPDATE
         username          = VALUES(username),
         password_hash     = VALUES(password_hash),
@@ -2621,60 +2740,60 @@ app.post('/save-login', async (req, res) => {
         line_manager      = VALUES(line_manager),
         former_employment = VALUES(former_employment),
         role              = VALUES(role),
-        creation_time     = VALUES(creation_time),
-        unique_user_code  = 
-          IF(VALUES(unique_user_code) IS NOT NULL, 
-             VALUES(unique_user_code), 
-             unique_user_code
-          )
+        /* only override if provided, else keep existing: */
+        unique_user_code  = IF(
+                              VALUES(unique_user_code) IS NOT NULL,
+                              VALUES(unique_user_code),
+                              unique_user_code
+                            )
     `;
 
-    // 4. Execute the upsert
     await connection.query(upsertSql, [
       username,
       password_hash || null,
       company_name,
       branch_name,
       local_user_id,
-      title || null,
-      first_name || null,
-      last_name || null,
-      birth_date || null,
-      recruitement_date || null,
-      line_manager || null,
-      former_employment || null,
-      role || null,
-      creation_time || null,
+      title            || null,
+      first_name       || null,
+      last_name        || null,
+      birth_date       || null,
+      recruitement_date|| null,
+      line_manager     || null,
+      former_employment|| null,
+      role             || null,
       unique_user_code || null
     ]);
 
-    /* 5. Fetch the fresh row */
+    // 3. Retrieve the freshly inserted/updated row
     const [rows] = await connection.query(
-      `SELECT * FROM log_in
-         WHERE company_name  = ?
-           AND branch_name   = ?
-           AND local_user_id = ?
-         LIMIT 1`,
+      `SELECT * 
+         FROM log_in
+        WHERE company_name  = ?
+          AND branch_name   = ?
+          AND local_user_id = ?
+        LIMIT 1`,
       [company_name, branch_name, local_user_id]
     );
 
     await connection.commit();
 
-    res.status(200).json({
-      message: rows.length
-        ? 'User record inserted/updated successfully.'
-        : 'User record upsert did not return a row.',
-      data: rows[0] || {}
+    // 4. Respond with the full record
+    return res.status(200).json({
+      message: 'User record inserted/updated successfully.',
+      data:    rows[0] || {}
     });
+
   } catch (err) {
     await connection.rollback();
     console.error('save-login error:', err);
-    res.status(500).json({ message: 'Server error while saving user record.' });
+    return res.status(500).json({
+      message: 'Server error while saving user record.'
+    });
   } finally {
     connection.release();
   }
 });
-
 
 
 app.post('/login', async (req, res) => {
