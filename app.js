@@ -1104,6 +1104,60 @@ app.get('/savings/unreconciled', async (req, res) => {
 // });
 
 
+// Endpoint to fetch ALL savings records for a given company + branch
+app.get('/savings/all', async (req, res) => {
+  const { company_name, branch_name } = req.query;
+
+  // 1. Basic validation -----------------------------------------------------
+  if (!company_name || !branch_name) {
+    return res
+      .status(400)
+      .json({ message: 'Company name and branch name are required.' });
+  }
+
+  // 2. Grab a pooled connection --------------------------------------------
+  const connection = await connect.getConnection();
+
+  try {
+    // 3. Filtered query ------------------------------------------------------
+    const sql = `
+      SELECT *
+      FROM   savings_history
+      WHERE  company_name = ?
+        AND  branch_name  = ?`;
+    const [savings] = await connection.query(sql, [company_name, branch_name]);
+
+    /* 4. Optional – mirror the “totals” logic used in /savings/unreconciled
+          Comment this whole block out if you DON’T want the extra row        */
+    const totalsRow = {
+      id: 'Totals',
+      TrnId: null,
+      TrnDate: null,
+      AccountNumber: null,
+      AccountName: 'Total',
+      SavingsPaid: savings
+        .reduce((sum, r) => sum + parseFloat(r.SavingsPaid || 0), 0)
+        .toFixed(2),
+      SavingsRunningBalance: null,
+      RECONCILED: null,
+      created_at: null,
+    };
+    savings.push(totalsRow);
+    /* --------------------------------------------------------------------- */
+
+    res.status(200).json(savings);
+  } catch (err) {
+    console.error('Error fetching savings records:', err);
+    res
+      .status(500)
+      .json({ message: 'Server error while fetching savings records.' });
+  } finally {
+    // 5. Always release your connection -------------------------------------
+    connection.release();
+  }
+});
+
+
 // app.get('/savings/all', async (req, res) => {
 //   const connection = await connect.getConnection();
 

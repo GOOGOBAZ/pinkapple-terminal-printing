@@ -69,8 +69,9 @@ Content-Type: application/json
 GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/get-all-savings-transaction
 Content-Type: application/json
 
+### Get Transaction by TrnId
 
-
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/get-all-savings-transaction?company_name=DARCY%20FINANCE&branch_name=Kafumbe
 
 
 
@@ -130,6 +131,16 @@ Content-Type: application/json
 ### Get all savings records
 GET http://localhost:3060/savings/all
 Content-Type: application/json
+
+
+### Get all savings transactions for a company & branch
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/savings/all?company_name=DARCY%20FINANCE&branch_name=Kafumbe1
+
+
+
+### Get all savings transactions for a company & branch
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/get-all-savings-transaction?company_name=DARCY%20FINANCE&branch_name=Kafumbe
+
 
 
 ### Get all savings records
