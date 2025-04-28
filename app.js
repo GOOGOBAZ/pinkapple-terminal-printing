@@ -1104,6 +1104,9 @@ app.get('/savings/unreconciled', async (req, res) => {
 // });
 
 
+
+
+
 // Endpoint to fetch ALL savings records for a given company + branch
 app.get('/savings/all', async (req, res) => {
   const { company_name, branch_name } = req.query;
@@ -1748,37 +1751,37 @@ app.get('/loans/unreconciled', async (req, res) => {
 //   }
 // });
 
-app.get('/savings/all', async (req, res) => {
-  const connection = await connect.getConnection();
+// app.get('/savings/all', async (req, res) => {
+//   const connection = await connect.getConnection();
 
-  try {
-    const query = `SELECT * FROM savings_history`;
-    const [allSavings] = await connection.query(query);
+//   try {
+//     const query = `SELECT * FROM savings_history`;
+//     const [allSavings] = await connection.query(query);
 
-    // Calculate totals for SavingsPaid
-    const totalsRow = {
-      id: 'Totals',
-      TrnId: null,
-      TrnDate: null,
-      AccountNumber: null,
-      AccountName: 'Total',
-      SavingsPaid: allSavings.reduce((sum, row) => sum + parseFloat(row.SavingsPaid || 0), 0).toFixed(2),
-      SavingsRunningBalance: null,
-      RECONCILED: null,
-      created_at: null,
-    };
+//     // Calculate totals for SavingsPaid
+//     const totalsRow = {
+//       id: 'Totals',
+//       TrnId: null,
+//       TrnDate: null,
+//       AccountNumber: null,
+//       AccountName: 'Total',
+//       SavingsPaid: allSavings.reduce((sum, row) => sum + parseFloat(row.SavingsPaid || 0), 0).toFixed(2),
+//       SavingsRunningBalance: null,
+//       RECONCILED: null,
+//       created_at: null,
+//     };
 
-    // Append totals row
-    allSavings.push(totalsRow);
+//     // Append totals row
+//     allSavings.push(totalsRow);
 
-    res.status(200).json(allSavings);
-  } catch (error) {
-    console.error('Error fetching all savings records:', error);
-    res.status(500).json({ message: 'Server error while fetching all savings records.' });
-  } finally {
-    connection.release();
-  }
-});
+//     res.status(200).json(allSavings);
+//   } catch (error) {
+//     console.error('Error fetching all savings records:', error);
+//     res.status(500).json({ message: 'Server error while fetching all savings records.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
 
 
 // app.post('/savings/reconcile', async (req, res) => {
@@ -2014,32 +2017,85 @@ app.get('/savings/all', async (req, res) => {
 //   }
 // });
 
+// app.get('/loans/all', async (req, res) => {
+//   const connection = await connect.getConnection();
+
+//   try {
+//     const query = `SELECT * FROM loan_paid`;
+//     const [allLoans] = await connection.query(query);
+
+//     // Calculate totals for amount_paid
+//     const totalsRow = {
+//       id: 'Totals',
+//       customer_number: null,
+//       customer_name: 'Total',
+//       customer_contact: null,
+//       amount_paid: allLoans.reduce((sum, row) => sum + parseFloat(row.amount_paid || 0), 0).toFixed(2),
+//       outstanding_total_amount: null,
+//       trxn_date: null,
+//       reconciled: null,
+//     };
+
+//     // Append totals row
+//     allLoans.push(totalsRow);
+
+//     res.status(200).json(allLoans);
+//   } catch (error) {
+//     console.error('Error fetching all loan records:', error);
+//     res.status(500).json({ message: 'Server error while fetching all loan records.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
+
+
+
+
+// Endpoint to fetch all loan payments for a specific company + branch
 app.get('/loans/all', async (req, res) => {
+  const { company_name, branch_name } = req.query;
+
+  /* 1️⃣  Guard-clause: both filters are mandatory */
+  if (!company_name || !branch_name) {
+    return res
+      .status(400)
+      .json({ message: 'Company name and branch name are required.' });
+  }
+
   const connection = await connect.getConnection();
 
   try {
-    const query = `SELECT * FROM loan_paid`;
-    const [allLoans] = await connection.query(query);
+    /* 2️⃣  Parameterised query – prevents SQL-injection */
+    const sql = `
+      SELECT *
+      FROM   loan_paid
+      WHERE  company_name = ? AND branch_name = ?
+      ORDER  BY trxn_date DESC, id DESC
+    `;
 
-    // Calculate totals for amount_paid
-    const totalsRow = {
-      id: 'Totals',
-      customer_number: null,
-      customer_name: 'Total',
-      customer_contact: null,
-      amount_paid: allLoans.reduce((sum, row) => sum + parseFloat(row.amount_paid || 0), 0).toFixed(2),
+    const [loans] = await connection.query(sql, [company_name, branch_name]);
+
+    /* 3️⃣  Optional summary row (totals) */
+    const summaryRow = {
+      id:                     'Totals',
+      customer_number:        null,
+      customer_name:          'Total',
+      customer_contact:       null,
+      amount_paid:            loans
+                                .reduce((s, r) => s + parseFloat(r.amount_paid || 0), 0)
+                                .toFixed(2),
       outstanding_total_amount: null,
-      trxn_date: null,
-      reconciled: null,
+      trxn_date:              null,
+      reconciled:             null,
     };
+    loans.push(summaryRow);
 
-    // Append totals row
-    allLoans.push(totalsRow);
-
-    res.status(200).json(allLoans);
-  } catch (error) {
-    console.error('Error fetching all loan records:', error);
-    res.status(500).json({ message: 'Server error while fetching all loan records.' });
+    res.status(200).json(loans);
+  } catch (err) {
+    console.error('Error fetching loan records:', err);
+    res
+      .status(500)
+      .json({ message: 'Server error while fetching loan records.' });
   } finally {
     connection.release();
   }

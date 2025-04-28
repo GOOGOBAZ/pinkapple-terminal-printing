@@ -134,8 +134,12 @@ Content-Type: application/json
 
 
 ### Get all savings transactions for a company & branch
-GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/savings/all?company_name=DARCY%20FINANCE&branch_name=Kafumbe1
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/savings/all?company_name=DARCY%20FINANCE%20COMPANY%20LTD&branch_name=Kafumbe%20Mukasa%20Rd%20Branch
 
+
+
+### Get all savings transactions for a company & branch
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/loans/all?company_name=DARCY%20FINANCE%20COMPANY%20LTD&branch_name=Kafumbe%20Mukasa%20Rd%20Branch
 
 
 ### Get all savings transactions for a company & branch
