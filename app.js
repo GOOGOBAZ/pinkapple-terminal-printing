@@ -3340,6 +3340,41 @@ app.post('/smstable-deposit-log', async (req, res) => {
 
 
 /**
+ * GET /smstable-deposit-log
+ * Returns all SMS deposit log entries, most recent first.
+ */
+app.get('/smstable-deposit-log', async (req, res) => {
+  const connection = await connect.getConnection();
+  try {
+    // 1) Fetch all rows, ordered by timestamp descending
+    const [rows] = await connection.query(
+      `SELECT
+         deposit_id,
+         quantity,
+         password_used,
+         company_name,
+         branch_name,
+         logged_at
+       FROM smstable_deposit_log
+       ORDER BY logged_at DESC`
+    );
+
+    // 2) Return them
+    res.status(200).json({ data: rows });
+  } catch (err) {
+    console.error('Error fetching SMS deposit logs:', err);
+    res.status(500).json({
+      message: 'Server error while retrieving SMS deposit logs.'
+    });
+  } finally {
+    // 3) Always release the connection
+    connection.release();
+  }
+});
+
+
+
+/**
  * GET /health
  *  – Returns 200 OK if the server is up
  *  – Does a quick `SELECT 1` against the main DB to test connectivity

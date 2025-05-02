@@ -320,3 +320,20 @@ Accept: application/json
 GET {{baseUrl}}/company-details/licence-check?companyName=Stat%20Solutions%20Research%20Network%20Ltd&branchName=Nansana
 Accept: application/json
 
+
+###
+# 1. Create a new deposit log entry
+POST {{baseUrl}}/smstable-deposit-log
+Content-Type: application/json
+
+{
+  "quantity":       5,
+  "password_used":  "pass1234",
+  "company_name":   "Stat Solutions Research Network Ltd",
+  "branch_name":    "Nansana"
+}
+
+###
+# 2. (Optional) Fetch all deposit logs
+GET {{baseUrl}}/get-smstable-deposit-log
+Accept: application/json
