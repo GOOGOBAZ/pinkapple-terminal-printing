@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SMS Deposit Manager</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+</head>
+<body>
+  <div class="container py-4">
+    <h1>SMS Deposit Manager</h1>
+    <!-- Global search across all fields -->
+    <div class="input-group mb-4">
+      <input
+        type="text"
+        id="search-input"
+        class="form-control"
+        placeholder="Search by ID, quantity, password, company or branch..."
+      />
+      <button class="btn btn-primary" id="search-btn">Search</button>
+      <button class="btn btn-secondary" id="clear-btn">Show All</button>
+    </div>
+
+    <table class="table table-striped" id="deposits-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Quantity</th>
+          <th>Password</th>
+          <th>Company</th>
+          <th>Branch</th>
+          <th>Logged At</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const baseUrl = 'https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com';
+    let allDeposits = [];
+
+    async function fetchJson(path, opts = {}) {
+      const res = await fetch(`${baseUrl}${path}`, opts);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    async function loadDeposits() {
+      try {
+        const { data } = await fetchJson('/smstable-deposit-log');
+        allDeposits = data;
+        renderTable(data);
+      } catch (e) {
+        console.error('Failed to load deposits:', e);
+      }
+    }
+
+    function renderTable(deposits) {
+      const tbody = document.querySelector('#deposits-table tbody');
+      tbody.innerHTML = '';
+      deposits.forEach(d => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${d.deposit_id}</td>
+          <td>${d.quantity}</td>
+          <td>${d.password_used}</td>
+          <td>${d.company_name}</td>
+          <td>${d.branch_name}</td>
+          <td>${new Date(d.logged_at).toLocaleString()}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function matchesDeposit(d, term) {
+      term = term.toLowerCase();
+      return (
+        String(d.deposit_id).includes(term) ||
+        String(d.quantity).includes(term) ||
+        d.password_used.toLowerCase().includes(term) ||
+        d.company_name.toLowerCase().includes(term) ||
+        d.branch_name.toLowerCase().includes(term)
+      );
+    }
+
+    document.getElementById('search-btn').addEventListener('click', () => {
+      const term = document.getElementById('search-input').value.trim();
+      if (!term) return;
+      const filtered = allDeposits.filter(d => matchesDeposit(d, term));
+      renderTable(filtered);
+    });
+
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      document.getElementById('search-input').value = '';
+      renderTable(allDeposits);
+    });
+
+    document.addEventListener('DOMContentLoaded', loadDeposits);
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

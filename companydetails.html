@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Company Manager</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+</head>
+<body>
+  <div class="container py-4">
+    <h1>Company Manager</h1>
+    <!-- Search Bar -->
+    <div class="input-group mb-4">
+      <input
+        type="text"
+        id="search-input"
+        class="form-control"
+        placeholder="Search by ID, company, branch or status..."
+      />
+      <button class="btn btn-primary" id="search-btn">Search</button>
+      <button class="btn btn-secondary" id="clear-btn">Show All</button>
+    </div>
+
+    <table class="table table-striped" id="companies-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Company</th>
+          <th>Branch</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const baseUrl = 'https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com';
+    let allCompanies = [];
+
+    async function fetchJson(path, opts = {}) {
+      const res = await fetch(`${baseUrl}${path}`, opts);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    async function loadCompanies() {
+      try {
+        const { data } = await fetchJson('/company-details');
+        allCompanies = data;
+        renderTable(data);
+      } catch (e) {
+        console.error('Failed to load companies:', e);
+      }
+    }
+
+    function renderTable(companies) {
+      const tbody = document.querySelector('#companies-table tbody');
+      tbody.innerHTML = '';
+      companies.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${c.company_detail_id}</td>
+          <td>${c.company_name}</td>
+          <td>${c.branch_name}</td>
+          <td>${c.payment_status}</td>
+          <td>
+            <button class="btn btn-sm btn-primary"
+              onclick="toggleStatus(${c.company_detail_id}, '${c.payment_status}')">
+              Toggle
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function matchesCompany(c, term) {
+      term = term.toLowerCase();
+      return (
+        String(c.company_detail_id).includes(term) ||
+        c.company_name.toLowerCase().includes(term) ||
+        c.branch_name.toLowerCase().includes(term) ||
+        c.payment_status.toLowerCase().includes(term)
+      );
+    }
+
+    document.getElementById('search-btn').addEventListener('click', () => {
+      const term = document.getElementById('search-input').value.trim();
+      if (!term) return;
+      const filtered = allCompanies.filter(c => matchesCompany(c, term));
+      renderTable(filtered);
+    });
+
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      document.getElementById('search-input').value = '';
+      renderTable(allCompanies);
+    });
+
+    async function toggleStatus(id, current) {
+      const next = current === 'PAID' ? 'NOT_PAID' : 'PAID';
+      try {
+        await fetchJson(`/company-details/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payment_status: next })
+        });
+        await loadCompanies();
+      } catch (e) {
+        console.error('Failed to toggle status:', e);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadCompanies);
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

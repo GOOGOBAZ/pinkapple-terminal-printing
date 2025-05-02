@@ -3295,6 +3295,9 @@ app.get('/company-details', async (req, res) => {
   }
 });
 
+
+
+
 // ------------------------------------------------------------------
 // 2) PATCH /company-details/:id/status
 //    Toggle or set a single company’s payment_status
@@ -3370,19 +3373,94 @@ app.patch('/company-details/:id/status', async (req, res) => {
 });
 
 
-/**
- * POST /smstable-deposit-log
- * Body parameters (all required):
- *   quantity       (int)
- *   password_used  (string)
- *   company_name   (string)
- *   branch_name    (string)
- */
-app.post('/smstable-deposit-log', async (req, res) => {
-  const connection = await connect.getConnection();
+// /**
+//  * POST /smstable-deposit-log
+//  * Body parameters (all required):
+//  *   quantity       (int)
+//  *   password_used  (string)
+//  *   company_name   (string)
+//  *   branch_name    (string)
+//  */
+// app.post('/smstable-deposit-log', async (req, res) => {
+//   const connection = await connect.getConnection();
 
+//   try {
+//     await connection.beginTransaction();
+
+//     const {
+//       quantity,
+//       password_used,
+//       company_name,
+//       branch_name
+//     } = req.body;
+
+//     // 1. validation
+//     if (
+//       quantity == null ||
+//       !password_used ||
+//       !company_name ||
+//       !branch_name
+//     ) {
+//       await connection.rollback();
+//       return res.status(400).json({
+//         message:
+//           'quantity, password_used, company_name and branch_name are all required.'
+//       });
+//     }
+
+//     // 2. INSERT
+//     const [result] = await connection.query(
+//       `INSERT INTO smstable_deposit_log
+//          (quantity, password_used, company_name, branch_name)
+//        VALUES (?, ?, ?, ?)`,
+//       [quantity, password_used, company_name, branch_name]
+//     );
+
+//     // 3. retrieve the inserted row
+//     const [rows] = await connection.query(
+//       `SELECT *
+//          FROM smstable_deposit_log
+//         WHERE deposit_id = ?`,
+//       [result.insertId]
+//     );
+//     const record = rows[0];
+
+//     await connection.commit();
+
+//     // 4. respond with the new record
+//     res.status(200).json({
+//       message: 'Deposit log saved successfully.',
+//       data: record
+//     });
+
+//   } catch (err) {
+//     await connection.rollback();
+//     console.error('Error saving deposit log:', err);
+//     res.status(500).json({
+//       message: 'Server error while saving deposit log.'
+//     });
+
+//   } finally {
+//     connection.release();
+//   }
+// });
+
+/****************************************************************
+ *  POST /smstable-deposit-log
+ *  Body parameters (all required):
+ *    quantity       (int)
+ *    password_used  (string)
+ *    company_name   (string)
+ *    branch_name    (string)
+ *
+ *  If a row with the same
+ *  (password_used, company_name, branch_name) exists,
+ *  we UPDATE it; otherwise we INSERT a new row.
+ ****************************************************************/
+app.post('/smstable-deposit-log', async (req, res) => {
+  const conn = await connect.getConnection();
   try {
-    await connection.beginTransaction();
+    await conn.beginTransaction();
 
     const {
       quantity,
@@ -3398,50 +3476,79 @@ app.post('/smstable-deposit-log', async (req, res) => {
       !company_name ||
       !branch_name
     ) {
-      await connection.rollback();
+      await conn.rollback();
       return res.status(400).json({
         message:
           'quantity, password_used, company_name and branch_name are all required.'
       });
     }
 
-    // 2. INSERT
-    const [result] = await connection.query(
-      `INSERT INTO smstable_deposit_log
-         (quantity, password_used, company_name, branch_name)
-       VALUES (?, ?, ?, ?)`,
-      [quantity, password_used, company_name, branch_name]
-    );
-
-    // 3. retrieve the inserted row
-    const [rows] = await connection.query(
-      `SELECT *
+    // 2. does a matching row already exist?
+    const [existing] = await conn.query(
+      `SELECT deposit_id
          FROM smstable_deposit_log
-        WHERE deposit_id = ?`,
-      [result.insertId]
+        WHERE password_used = ?
+          AND company_name  = ?
+          AND branch_name   = ?
+        LIMIT 1`,
+      [password_used, company_name, branch_name]
     );
-    const record = rows[0];
 
-    await connection.commit();
+    let record;
+    if (existing.length) {
+      // 3a. UPDATE path
+      const id = existing[0].deposit_id;
 
-    // 4. respond with the new record
+      await conn.query(
+        `UPDATE smstable_deposit_log
+            SET quantity = ?,
+                logged_at = CURRENT_TIMESTAMP
+          WHERE deposit_id = ?`,
+        [quantity, id]
+      );
+
+      const [rows] = await conn.query(
+        `SELECT * FROM smstable_deposit_log WHERE deposit_id = ?`,
+        [id]
+      );
+      record = rows[0];
+
+    } else {
+      // 3b. INSERT path
+      const [result] = await conn.query(
+        `INSERT INTO smstable_deposit_log
+           (quantity, password_used, company_name, branch_name)
+         VALUES (?, ?, ?, ?)`,
+        [quantity, password_used, company_name, branch_name]
+      );
+
+      const [rows] = await conn.query(
+        `SELECT * FROM smstable_deposit_log WHERE deposit_id = ?`,
+        [result.insertId]
+      );
+      record = rows[0];
+    }
+
+    await conn.commit();
+
+    // 4. respond with the upserted record
     res.status(200).json({
-      message: 'Deposit log saved successfully.',
+      message: existing.length
+        ? 'Deposit log updated successfully.'
+        : 'New deposit log saved successfully.',
       data: record
     });
 
   } catch (err) {
-    await connection.rollback();
+    await conn.rollback();
     console.error('Error saving deposit log:', err);
     res.status(500).json({
       message: 'Server error while saving deposit log.'
     });
-
   } finally {
-    connection.release();
+    conn.release();
   }
 });
-
 
 /**
  * GET /smstable-deposit-log
