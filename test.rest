@@ -335,5 +335,5 @@ Content-Type: application/json
 
 ###
 # 2. (Optional) Fetch all deposit logs
-GET {{baseUrl}}/get-smstable-deposit-log
+GET {{baseUrl}}/smstable-deposit-log
 Accept: application/json

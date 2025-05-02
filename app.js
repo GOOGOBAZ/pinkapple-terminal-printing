@@ -3264,6 +3264,110 @@ app.get('/company-details/licence-check', async (req, res) => {
 });
 
 
+// ------------------------------------------------------------------
+// 1) GET /company-details
+//    List all companies with their payment status
+// ------------------------------------------------------------------
+app.get('/company-details', async (req, res) => {
+  const connection = await connect.getConnection();
+  try {
+    const [rows] = await connection.query(
+      `SELECT
+         company_detail_id,
+         company_name,
+         branch_name,
+         payment_status,
+         payment_verified_at,
+         user_id,
+         created_at,
+         updated_at
+       FROM company_details
+       ORDER BY company_name, branch_name`
+    );
+    return res.status(200).json({ data: rows });
+  } catch (err) {
+    console.error('Error fetching company_details:', err);
+    return res
+      .status(500)
+      .json({ message: 'Server error while retrieving companies.' });
+  } finally {
+    connection.release();
+  }
+});
+
+// ------------------------------------------------------------------
+// 2) PATCH /company-details/:id/status
+//    Toggle or set a single company’s payment_status
+// ------------------------------------------------------------------
+app.patch('/company-details/:id/status', async (req, res) => {
+  const connection = await connect.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const { id } = req.params;
+    let { payment_status } = req.body;
+    if (!payment_status) {
+      await connection.rollback();
+      return res
+        .status(400)
+        .json({ message: 'payment_status is required in the body.' });
+    }
+    payment_status = payment_status.toUpperCase();
+    if (!['PAID', 'NOT_PAID'].includes(payment_status)) {
+      await connection.rollback();
+      return res.status(400).json({
+        message: "payment_status must be either 'PAID' or 'NOT_PAID'."
+      });
+    }
+
+    // ensure the record exists
+    const [found] = await connection.query(
+      `SELECT company_detail_id
+         FROM company_details
+        WHERE company_detail_id = ?
+        LIMIT 1`,
+      [id]
+    );
+    if (!found.length) {
+      await connection.rollback();
+      return res
+        .status(404)
+        .json({ message: `No company found with id=${id}.` });
+    }
+
+    // perform the update
+    await connection.query(
+      `UPDATE company_details
+          SET payment_status      = ?,
+              payment_verified_at = CASE WHEN ? = 'PAID' THEN CURRENT_TIMESTAMP ELSE payment_verified_at END,
+              updated_at          = CURRENT_TIMESTAMP
+        WHERE company_detail_id = ?`,
+      [payment_status, payment_status, id]
+    );
+
+    // read back the updated row
+    const [updatedRows] = await connection.query(
+      `SELECT *
+         FROM company_details
+        WHERE company_detail_id = ?`,
+      [id]
+    );
+
+    await connection.commit();
+    return res.status(200).json({
+      message: 'Company status updated successfully.',
+      data: updatedRows[0]
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error('Error updating company status:', err);
+    return res
+      .status(500)
+      .json({ message: 'Server error while updating company status.' });
+  } finally {
+    connection.release();
+  }
+});
 
 
 /**
