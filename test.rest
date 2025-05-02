@@ -299,9 +299,9 @@ Content-Type: application/json
 {
   "company_name":  "Stat Solutions Research Network Ltd",
   "branch_name":   "Nansana",
-  "box_number":    "P.O. Box 9876 Nansana UG",
-  "payment_status":"PAID",      // or "NOT_PAID"
-  "user_id":       42           // replace with a real user_id if you track it
+  "box_number":    "P.O. Box 9876 Nansana UG",
+  "payment_status": "PAID",
+  "user_id":       42
 }
 
 ###
