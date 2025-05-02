@@ -3264,6 +3264,81 @@ app.get('/company-details/licence-check', async (req, res) => {
 });
 
 
+
+
+/**
+ * POST /smstable-deposit-log
+ * Body parameters (all required):
+ *   quantity       (int)
+ *   password_used  (string)
+ *   company_name   (string)
+ *   branch_name    (string)
+ */
+app.post('/smstable-deposit-log', async (req, res) => {
+  const connection = await connect.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const {
+      quantity,
+      password_used,
+      company_name,
+      branch_name
+    } = req.body;
+
+    // 1. validation
+    if (
+      quantity == null ||
+      !password_used ||
+      !company_name ||
+      !branch_name
+    ) {
+      await connection.rollback();
+      return res.status(400).json({
+        message:
+          'quantity, password_used, company_name and branch_name are all required.'
+      });
+    }
+
+    // 2. INSERT
+    const [result] = await connection.query(
+      `INSERT INTO smstable_deposit_log
+         (quantity, password_used, company_name, branch_name)
+       VALUES (?, ?, ?, ?)`,
+      [quantity, password_used, company_name, branch_name]
+    );
+
+    // 3. retrieve the inserted row
+    const [rows] = await connection.query(
+      `SELECT *
+         FROM smstable_deposit_log
+        WHERE deposit_id = ?`,
+      [result.insertId]
+    );
+    const record = rows[0];
+
+    await connection.commit();
+
+    // 4. respond with the new record
+    res.status(200).json({
+      message: 'Deposit log saved successfully.',
+      data: record
+    });
+
+  } catch (err) {
+    await connection.rollback();
+    console.error('Error saving deposit log:', err);
+    res.status(500).json({
+      message: 'Server error while saving deposit log.'
+    });
+
+  } finally {
+    connection.release();
+  }
+});
+
+
 /**
  * GET /health
  *  – Returns 200 OK if the server is up

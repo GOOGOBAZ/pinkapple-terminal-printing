@@ -570,3 +570,18 @@ ENGINE      = InnoDB
 DEFAULT CHARSET = utf8mb4
 COLLATE     = utf8mb4_0900_ai_ci;
 
+
+
+CREATE TABLE `smstable_deposit_log` (
+  `deposit_id`     BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `quantity`       INT(11)       NOT NULL,
+  `password_used`  VARCHAR(10)   NOT NULL,
+   `company_name`   VARCHAR(100)  NOT NULL,
+  `branch_name`    VARCHAR(100)  NOT NULL,
+  `logged_at`      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`deposit_id`)
+) ENGINE=InnoDB
+  AUTO_INCREMENT=4
+  DEFAULT CHARSET=utf8;
+
+
