@@ -138,7 +138,7 @@ GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/savings/all?co
 
 
 
-### Get all savings transactions for a company & branch
+### Get all loan transactions for a company & branch
 GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/loans/all?company_name=DARCY%20FINANCE%20COMPANY%20LTD&branch_name=Kafumbe%20Mukasa%20Rd%20Branch
 
 
@@ -283,3 +283,26 @@ Content-Type: application/json
   "user_id": "10000",  
   "p_word_login": "aa" 
 }
+
+
+
+###############################################################
+#  VS Code ‑ REST Client sample: POST /company‑details/save
+#  Target: Heroku prod instance
+###############################################################
+@baseUrl = https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com
+
+###
+POST {{baseUrl}}/company-details/save
+Content-Type: application/json
+
+{
+  "company_name":  "Stat Solutions Research Network Ltd",
+  "branch_name":   "Nansana",
+  "box_number":    "P.O. Box 9876 Nansana UG",
+  "payment_status":"PAID",      // or "NOT_PAID"
+  "user_id":       42           // replace with a real user_id if you track it
+}
+
+###
+# You can add further requests below (e.g., validation tests)

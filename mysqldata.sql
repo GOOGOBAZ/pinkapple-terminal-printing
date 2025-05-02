@@ -537,3 +537,36 @@ ALTER TABLE `transactions_dev`
 COMMIT;
 
 
+
+
+/* ──────────────────────────────────────────────────────────────
+      MASTER TABLE ▸ company_details
+   ────────────────────────────────────────────────────────────── */
+CREATE TABLE company_details (
+    company_detail_id   INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    
+    /* core identity ------------------------------------------- */
+    company_name        VARCHAR(100) NOT NULL,
+    branch_name         VARCHAR(100) NOT NULL,
+    box_number          VARCHAR(100) DEFAULT NULL,
+    
+    /* subscription status ------------------------------------- */
+    payment_status      ENUM('PAID','NOT_PAID')
+                        NOT NULL DEFAULT 'PAID',
+    payment_verified_at TIMESTAMP NULL DEFAULT NULL,
+    
+    /* audit / linkage ----------------------------------------- */
+    user_id             INT UNSIGNED NULL,
+    created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP NOT NULL
+                                   DEFAULT CURRENT_TIMESTAMP
+                                   ON UPDATE CURRENT_TIMESTAMP,
+    
+    /* keys ---------------------------------------------------- */
+    PRIMARY KEY (company_detail_id),
+    UNIQUE KEY uk_company_branch (company_name, branch_name)
+)
+ENGINE      = InnoDB
+DEFAULT CHARSET = utf8mb4
+COLLATE     = utf8mb4_0900_ai_ci;
+
