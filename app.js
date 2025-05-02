@@ -3209,6 +3209,59 @@ app.post('/company-details/save', async (req, res) => {
 });
 
 
+/**
+ * GET /company-details/licence-check
+ * Query parameters:
+ *   companyName  (string, required)
+ *   branchName   (string, required)
+ *
+ * Returns:
+ *   { payment_status: 'PAID' | 'NOT_PAID' }
+ */
+app.get('/company-details/licence-check', async (req, res) => {
+  const connection = await connect.getConnection();
+
+  try {
+    const { companyName, branchName } = req.query;
+
+    // 1. validate
+    if (!companyName || !branchName) {
+      return res.status(400).json({
+        message: 'companyName and branchName are required.'
+      });
+    }
+
+    // 2. lookup
+    const [rows] = await connection.query(
+      `SELECT payment_status
+         FROM company_details
+        WHERE company_name = ?
+          AND branch_name  = ?
+        LIMIT 1`,
+      [companyName, branchName]
+    );
+
+    // 3. not found?
+    if (!rows.length) {
+      return res.status(404).json({
+        message: 'No company_details record found for that companyName/branchName.'
+      });
+    }
+
+    // 4. respond
+    return res.status(200).json({
+      payment_status: rows[0].payment_status
+    });
+
+  } catch (err) {
+    console.error('Error checking licence status:', err);
+    return res.status(500).json({
+      message: 'Server error while checking licence status.'
+    });
+  } finally {
+    connection.release();
+  }
+});
 
 
 /**

@@ -306,3 +306,17 @@ Content-Type: application/json
 
 ###
 # You can add further requests below (e.g., validation tests)
+
+
+
+###  
+# 1. Health-check (smoke-test your Node + MySQL connection)
+GET {{baseUrl}}/health
+Accept: application/json
+
+
+
+### Licence-check for a company/branch
+GET {{baseUrl}}/company-details/licence-check?companyName=Stat%20Solutions%20Research%20Network%20Ltd&branchName=Nansana
+Accept: application/json
+
