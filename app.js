@@ -3210,6 +3210,34 @@ app.post('/company-details/save', async (req, res) => {
 
 
 
+
+/**
+ * GET /health
+ *  – Returns 200 OK if the server is up
+ *  – Does a quick `SELECT 1` against the main DB to test connectivity
+ */
+app.get('/health', async (req, res) => {
+  try {
+    // quick DB ping
+    const [[{ '1': ok }]] = await connect.query('SELECT 1');
+    if (ok !== 1) throw new Error('Unexpected response');
+
+    return res.json({
+      status:    'ok',
+      database:  'ok',
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('Health check failed:', err);
+    return res.status(500).json({
+      status:   'error',
+      database: 'fail',
+      error:    err.message
+    });
+  }
+});
+
+
 io.on('connection', (socket) => {
   console.log('A new client connected via WebSocket');
 
