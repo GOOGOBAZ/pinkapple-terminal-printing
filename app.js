@@ -435,7 +435,7 @@ app.get('/get-all-savings-transaction', async (req, res) => {
         data: rows
       });
     } else {
-      res.status(200).json({ message: 'No transactions found.' });
+      res.status(200).json({ message: 'No transactions found.',  data: [], });
     }
   } catch (error) {
     console.error('Error retrieving transaction data:', error);
@@ -481,7 +481,12 @@ app.get('/get-all-savings-transaction-search', async (req, res) => {
         }
       });
     } else {
-      res.status(200).json({ message: 'No transactions found.' });
+      res.status(200).json({ message: 'No transactions found.',data: [],
+        pagination: {
+          currentPage: page,
+          pageSize: pageSize,
+          totalResults: rows.length
+        } });
     }
   } catch (error) {
     console.error('Error retrieving transaction data:', error);
@@ -558,7 +563,7 @@ app.post('/create-saving', authenticateJWT, async (req, res) => {
       await connection.rollback();
       return res.status(200).json({ message: 'Company details not found in the DB.' });
     }
-
+      let receiptData = { }; // Initialize receiptData to an empty object
     // 5) Update the savings balance in transactions
     const updateBalanceQuery = `
       UPDATE transactions
@@ -578,7 +583,7 @@ app.post('/create-saving', authenticateJWT, async (req, res) => {
 
     if (rows.length === 0) {
       await connection.rollback();
-      return res.status(404).json({ message: 'Transaction ID not found in transactions.' });
+      return res.status(400).json({ message: 'Transaction ID not found in transactions.', receiptData: receiptData });
     }
 
     const updatedBalance = rows[0].SavingsRunningBalance;
@@ -609,7 +614,7 @@ app.post('/create-saving', authenticateJWT, async (req, res) => {
     await connection.commit();
 
     // 9) Prepare receipt data
-    const receiptData = {
+     receiptData = {
       theCompanyName:        companyDetails[0].the_company_name,
       theCompanyBranch:      companyDetails[0].the_company_branch,
       theCompanyBoxNumber:   companyDetails[0].the_company_box_number,
@@ -1255,6 +1260,7 @@ app.get('/get-all-loan-transactions', async (req, res) => {
     } else {
       res.status(200).json({
         message: `No loans found for company "${company_name}" at branch "${branch_name}".`,
+         data: []
       });
     }
   } catch (error) {
@@ -1280,7 +1286,13 @@ app.get('/get-all-loan-transactions-search', async (req, res) => {
   // Optional: Validate required fields
   if (!companyName || !branchName) {
     return res.status(400).json({
-      message: "Please provide 'company_name' and 'branch_name'."
+      message: "Please provide 'company_name' and 'branch_name'.",
+      data: [],
+      pagination: {
+        currentPage: page,
+        pageSize: pageSize,
+        resultsOnThisPage: rows.length
+      }
     });
   }
 
@@ -1358,7 +1370,8 @@ app.get('/search-loan-transaction', async (req, res) => {
   // Optional: Validate required fields
   if (!companyName || !branchName) {
     return res.status(400).json({
-      message: "Please provide 'company_name' and 'branch_name'."
+      message: "Please provide 'company_name' and 'branch_name'.",
+       data: rows
     });
   }
 
