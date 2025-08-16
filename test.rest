@@ -63,6 +63,11 @@ Content-Type: application/json
 GET http://localhost:3060/get-all-savings-transaction
 Content-Type: application/json
 
+### Get all loan transactions (Darcy Finance)
+GET https://pinkapple-reports-printing-8964e6404c0e.herokuapp.com/get-all-loan-transactions
+    ?company_name=DARCY%20FINANCE%20COMPANY%20LTD
+    &branch_name=Kisenyi-KafumbeMukasa%20Savings
+Accept: application/json
 
 
 ### Get Transaction by TrnId

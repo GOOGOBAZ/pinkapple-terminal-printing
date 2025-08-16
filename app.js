@@ -435,7 +435,7 @@ app.get('/get-all-savings-transaction', async (req, res) => {
         data: rows
       });
     } else {
-      res.status(404).json({ message: 'No transactions found.' });
+      res.status(200).json({ message: 'No transactions found.' });
     }
   } catch (error) {
     console.error('Error retrieving transaction data:', error);
@@ -481,7 +481,7 @@ app.get('/get-all-savings-transaction-search', async (req, res) => {
         }
       });
     } else {
-      res.status(404).json({ message: 'No transactions found.' });
+      res.status(200).json({ message: 'No transactions found.' });
     }
   } catch (error) {
     console.error('Error retrieving transaction data:', error);
@@ -556,7 +556,7 @@ app.post('/create-saving', authenticateJWT, async (req, res) => {
 
     if (companyDetails.length === 0) {
       await connection.rollback();
-      return res.status(404).json({ message: 'Company details not found in the DB.' });
+      return res.status(200).json({ message: 'Company details not found in the DB.' });
     }
 
     // 5) Update the savings balance in transactions
@@ -1253,8 +1253,8 @@ app.get('/get-all-loan-transactions', async (req, res) => {
         data: rows
       });
     } else {
-      res.status(404).json({
-        message: 'No loans found for the specified company and branch.'
+      res.status(200).json({
+        message: `No loans found for company "${company_name}" at branch "${branch_name}".`,
       });
     }
   } catch (error) {
@@ -1530,7 +1530,7 @@ console.log(req.user);
 
     if (companyDetails.length === 0) {
       await connection.rollback();
-      return res.status(404).json({
+      return res.status(200).json({
         message: 'Company details not found for the specified name and branch.'
       });
     }
@@ -1556,7 +1556,7 @@ console.log(req.user);
 
     if (loanRows.length === 0) {
       await connection.rollback();
-      return res.status(404).json({
+      return res.status(200).json({
         message: 'No matching loan record found for the given ID, company, and branch.'
       });
     }
@@ -2522,143 +2522,143 @@ async function generateUniqueCodeInDB(connection, length = 4) {
 //   }
 // });
 
-// app.post('/save-login', async (req, res) => {
-//   const connection = await connect.getConnection();
-// console.log('Received request at /save-login');
-//   try {
-//     await connection.beginTransaction();
+app.post('/save-login', async (req, res) => {
+  const connection = await connect.getConnection();
+console.log('Received request at /save-login');
+  try {
+    await connection.beginTransaction();
 
-//     /* 1. Destructure request body */
-//     const {
-//       username,
-//       password_hash,
-//       company_name,
-//       branch_name,
-//       local_user_id,
-//       title,
-//       first_name,
-//       last_name,
-//       birth_date,
-//       recruitement_date,
-//       line_manager,
-//       former_employment,
-//       role,
-//       creation_time,
-//       unique_user_code     // may be undefined / blank
-//     } = req.body;
+    /* 1. Destructure request body */
+    const {
+      username,
+      password_hash,
+      company_name,
+      branch_name,
+      local_user_id,
+      title,
+      first_name,
+      last_name,
+      birth_date,
+      recruitement_date,
+      line_manager,
+      former_employment,
+      role,
+      creation_time,
+      unique_user_code     // may be undefined / blank
+    } = req.body;
 
-//     /* 2. Check if the row already exists */
-//     const [found] = await connection.query(
-//       `SELECT unique_user_code
-//          FROM log_in
-//         WHERE company_name  = ?
-//           AND branch_name   = ?
-//           AND local_user_id = ?
-//         LIMIT 1`,
-//       [company_name, branch_name, local_user_id]
-//     );
+    /* 2. Check if the row already exists */
+    const [found] = await connection.query(
+      `SELECT unique_user_code
+         FROM log_in
+        WHERE company_name  = ?
+          AND branch_name   = ?
+          AND local_user_id = ?
+        LIMIT 1`,
+      [company_name, branch_name, local_user_id]
+    );
 
-//     let finalUniqueCode;          // value we will commit
-//     let action;                   // “inserted” | “updated”
+    let finalUniqueCode;          // value we will commit
+    let action;                   // “inserted” | “updated”
 
-//     if (found.length === 0) {
-//       /* ---------- INSERT branch ---------- */
-//       finalUniqueCode =
-//         unique_user_code || (await generateUniqueCodeInDB(connection, 8));
+    if (found.length === 0) {
+      /* ---------- INSERT branch ---------- */
+      finalUniqueCode =
+        unique_user_code || (await generateUniqueCodeInDB(connection, 8));
 
-//       await connection.query(
-//         `INSERT INTO log_in (
-//            username, password_hash, company_name, branch_name, local_user_id,
-//            title, first_name, last_name, birth_date, recruitement_date,
-//            line_manager, former_employment, role, creation_time,
-//            unique_user_code
-//          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-//         [
-//           username,
-//           password_hash || null,
-//           company_name,
-//           branch_name,
-//           local_user_id,
-//           title || null,
-//           first_name || null,
-//           last_name || null,
-//           birth_date || null,
-//           recruitement_date || null,
-//           line_manager || null,
-//           former_employment || null,
-//           role || null,
-//           creation_time || null,
-//           finalUniqueCode
-//         ]
-//       );
+      await connection.query(
+        `INSERT INTO log_in (
+           username, password_hash, company_name, branch_name, local_user_id,
+           title, first_name, last_name, birth_date, recruitement_date,
+           line_manager, former_employment, role, creation_time,
+           unique_user_code
+         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [
+          username,
+          password_hash || null,
+          company_name,
+          branch_name,
+          local_user_id,
+          title || null,
+          first_name || null,
+          last_name || null,
+          birth_date || null,
+          recruitement_date || null,
+          line_manager || null,
+          former_employment || null,
+          role || null,
+          creation_time || null,
+          finalUniqueCode
+        ]
+      );
 
-//       action = 'inserted';
-//     } else {
-//       /* ---------- UPDATE branch ---------- */
-//       finalUniqueCode = found[0].unique_user_code;   // keep existing
+      action = 'inserted';
+    } else {
+      /* ---------- UPDATE branch ---------- */
+      finalUniqueCode = found[0].unique_user_code;   // keep existing
 
-//       await connection.query(
-//         `UPDATE log_in SET
-//            username          = ?,                -- in case it changed
-//            password_hash     = ?, 
-//            title             = ?,
-//            first_name        = ?,
-//            last_name         = ?,
-//            birth_date        = ?,
-//            recruitement_date = ?,
-//            line_manager      = ?,
-//            former_employment = ?,
-//            role              = ?,
-//            creation_time     = ?
-//          WHERE company_name  = ?
-//            AND branch_name   = ?
-//            AND local_user_id = ?`,
-//         [
-//           username,
-//           password_hash || null,
-//           title || null,
-//           first_name || null,
-//           last_name || null,
-//           birth_date || null,
-//           recruitement_date || null,
-//           line_manager || null,
-//           former_employment || null,
-//           role || null,
-//           creation_time || null,
-//           company_name,
-//           branch_name,
-//           local_user_id
-//         ]
-//       );
+      await connection.query(
+        `UPDATE log_in SET
+           username          = ?,                -- in case it changed
+           password_hash     = ?, 
+           title             = ?,
+           first_name        = ?,
+           last_name         = ?,
+           birth_date        = ?,
+           recruitement_date = ?,
+           line_manager      = ?,
+           former_employment = ?,
+           role              = ?,
+           creation_time     = ?
+         WHERE company_name  = ?
+           AND branch_name   = ?
+           AND local_user_id = ?`,
+        [
+          username,
+          password_hash || null,
+          title || null,
+          first_name || null,
+          last_name || null,
+          birth_date || null,
+          recruitement_date || null,
+          line_manager || null,
+          former_employment || null,
+          role || null,
+          creation_time || null,
+          company_name,
+          branch_name,
+          local_user_id
+        ]
+      );
 
-//       action = 'updated';
-//     }
+      action = 'updated';
+    }
 
-//     /* 3. Fetch the fresh row */
-//     const [rowData] = await connection.query(
-//       `SELECT * FROM log_in
-//         WHERE company_name  = ?
-//           AND branch_name   = ?
-//           AND local_user_id = ?
-//         LIMIT 1`,
-//       [company_name, branch_name, local_user_id]
-//     );
+    /* 3. Fetch the fresh row */
+    const [rowData] = await connection.query(
+      `SELECT * FROM log_in
+        WHERE company_name  = ?
+          AND branch_name   = ?
+          AND local_user_id = ?
+        LIMIT 1`,
+      [company_name, branch_name, local_user_id]
+    );
 
-//     await connection.commit();
+    await connection.commit();
 
-//     res.status(200).json({
-//       message: `User ${action} successfully.`,
-//       data: rowData[0] || {},
-//       unique_user_code: finalUniqueCode
-//     });
-//   } catch (err) {
-//     await connection.rollback();
-//     console.error('save-login error:', err);
-//     res.status(500).json({ message: 'Server error while saving user record.' });
-//   } finally {
-//     connection.release();
-//   }
-// });
+    res.status(200).json({
+      message: `User ${action} successfully.`,
+      data: rowData[0] || {},
+      unique_user_code: finalUniqueCode
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error('save-login error:', err);
+    res.status(500).json({ message: 'Server error while saving user record.' });
+  } finally {
+    connection.release();
+  }
+});
 
 
 // make sure you have this unique constraint in your schema:
@@ -2789,121 +2789,121 @@ async function generateUniqueCodeInDB(connection, length = 4) {
 // ALTER TABLE log_in
 //   ADD UNIQUE KEY uq_comp_branch_user (company_name, branch_name, local_user_id);
 
-app.post('/save-login', async (req, res) => {
-  const connection = await connect.getConnection();
-  console.log('Received request at /save-login:', req.body);
+// app.post('/save-login', async (req, res) => {
+//   const connection = await connect.getConnection();
+//   console.log('Received request at /save-login:', req.body);
 
-  try {
-    await connection.beginTransaction();
+//   try {
+//     await connection.beginTransaction();
 
-    // 1. Destructure & validate
-    const {
-      username,
-      password_hash,
-      company_name,
-      branch_name,
-      local_user_id,
-      title,
-      first_name,
-      last_name,
-      birth_date,
-      recruitement_date,
-      line_manager,
-      former_employment,
-      role,
-      unique_user_code   // optional override if you want to set it explicitly
-    } = req.body;
+//     // 1. Destructure & validate
+//     const {
+//       username,
+//       password_hash,
+//       company_name,
+//       branch_name,
+//       local_user_id,
+//       title,
+//       first_name,
+//       last_name,
+//       birth_date,
+//       recruitement_date,
+//       line_manager,
+//       former_employment,
+//       role,
+//       unique_user_code   // optional override if you want to set it explicitly
+//     } = req.body;
 
-    if (!username || !company_name || !branch_name || !local_user_id) {
-      await connection.rollback();
-      return res.status(400).json({
-        message: 'username, company_name, branch_name and local_user_id are required.'
-      });
-    }
+//     if (!username || !company_name || !branch_name || !local_user_id) {
+//       await connection.rollback();
+//       return res.status(400).json({
+//         message: 'username, company_name, branch_name and local_user_id are required.'
+//       });
+//     }
 
-    // 2. Upsert in one statement
-    const upsertSql = `
-      INSERT INTO log_in (
-        username,
-        password_hash,
-        company_name,
-        branch_name,
-        local_user_id,
-        title,
-        first_name,
-        last_name,
-        birth_date,
-        recruitement_date,
-        line_manager,
-        former_employment,
-        role,
-        unique_user_code
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-      ON DUPLICATE KEY UPDATE
-        username          = VALUES(username),
-        password_hash     = VALUES(password_hash),
-        title             = VALUES(title),
-        first_name        = VALUES(first_name),
-        last_name         = VALUES(last_name),
-        birth_date        = VALUES(birth_date),
-        recruitement_date = VALUES(recruitement_date),
-        line_manager      = VALUES(line_manager),
-        former_employment = VALUES(former_employment),
-        role              = VALUES(role),
-        /* only override if provided, else keep existing: */
-        unique_user_code  = IF(
-                              VALUES(unique_user_code) IS NOT NULL,
-                              VALUES(unique_user_code),
-                              unique_user_code
-                            )
-    `;
+//     // 2. Upsert in one statement
+//     const upsertSql = `
+//       INSERT INTO log_in (
+//         username,
+//         password_hash,
+//         company_name,
+//         branch_name,
+//         local_user_id,
+//         title,
+//         first_name,
+//         last_name,
+//         birth_date,
+//         recruitement_date,
+//         line_manager,
+//         former_employment,
+//         role,
+//         unique_user_code
+//       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+//       ON DUPLICATE KEY UPDATE
+//         username          = VALUES(username),
+//         password_hash     = VALUES(password_hash),
+//         title             = VALUES(title),
+//         first_name        = VALUES(first_name),
+//         last_name         = VALUES(last_name),
+//         birth_date        = VALUES(birth_date),
+//         recruitement_date = VALUES(recruitement_date),
+//         line_manager      = VALUES(line_manager),
+//         former_employment = VALUES(former_employment),
+//         role              = VALUES(role),
+//         /* only override if provided, else keep existing: */
+//         unique_user_code  = IF(
+//                               VALUES(unique_user_code) IS NOT NULL,
+//                               VALUES(unique_user_code),
+//                               unique_user_code
+//                             )
+//     `;
 
-    await connection.query(upsertSql, [
-      username,
-      password_hash || null,
-      company_name,
-      branch_name,
-      local_user_id,
-      title            || null,
-      first_name       || null,
-      last_name        || null,
-      birth_date       || null,
-      recruitement_date|| null,
-      line_manager     || null,
-      former_employment|| null,
-      role             || null,
-      unique_user_code || null
-    ]);
+//     await connection.query(upsertSql, [
+//       username,
+//       password_hash || null,
+//       company_name,
+//       branch_name,
+//       local_user_id,
+//       title            || null,
+//       first_name       || null,
+//       last_name        || null,
+//       birth_date       || null,
+//       recruitement_date|| null,
+//       line_manager     || null,
+//       former_employment|| null,
+//       role             || null,
+//       unique_user_code || null
+//     ]);
 
-    // 3. Retrieve the freshly inserted/updated row
-    const [rows] = await connection.query(
-      `SELECT * 
-         FROM log_in
-        WHERE company_name  = ?
-          AND branch_name   = ?
-          AND local_user_id = ?
-        LIMIT 1`,
-      [company_name, branch_name, local_user_id]
-    );
+//     // 3. Retrieve the freshly inserted/updated row
+//     const [rows] = await connection.query(
+//       `SELECT * 
+//          FROM log_in
+//         WHERE company_name  = ?
+//           AND branch_name   = ?
+//           AND local_user_id = ?
+//         LIMIT 1`,
+//       [company_name, branch_name, local_user_id]
+//     );
 
-    await connection.commit();
+//     await connection.commit();
 
-    // 4. Respond with the full record
-    return res.status(200).json({
-      message: 'User record inserted/updated successfully.',
-      data:    rows[0] || {}
-    });
+//     // 4. Respond with the full record
+//     return res.status(200).json({
+//       message: 'User record inserted/updated successfully.',
+//       data:    rows[0] || {}
+//     });
 
-  } catch (err) {
-    await connection.rollback();
-    console.error('save-login error:', err);
-    return res.status(500).json({
-      message: 'Server error while saving user record.'
-    });
-  } finally {
-    connection.release();
-  }
-});
+//   } catch (err) {
+//     await connection.rollback();
+//     console.error('save-login error:', err);
+//     return res.status(500).json({
+//       message: 'Server error while saving user record.'
+//     });
+//   } finally {
+//     connection.release();
+//   }
+// });
 
 
 app.post('/login', async (req, res) => {
@@ -3424,7 +3424,7 @@ app.get('/company-details/licence-check', async (req, res) => {
 
     /* ─────────────── 3. not found? ───────────── */
     if (!rows.length) {
-      return res.status(404).json({
+      return res.status(200).json({
         message: 'No company_details record found for that companyName/branchName.'
       });
     }
@@ -3479,24 +3479,97 @@ app.get('/company-details', async (req, res) => {
 
 
 
-// ------------------------------------------------------------------
-// 2) PATCH /company-details/:id/status
-//    Toggle or set a single company’s payment_status
-// ------------------------------------------------------------------
+// // ------------------------------------------------------------------
+// // 2) PATCH /company-details/:id/status
+// //    Toggle or set a single company’s payment_status
+// // ------------------------------------------------------------------
+// app.patch('/company-details/:id/status', async (req, res) => {
+//   const connection = await connect.getConnection();
+//   try {
+//     await connection.beginTransaction();
+
+//     const { id } = req.params;
+//     let { payment_status } = req.body;
+//     if (!payment_status) {
+//       await connection.rollback();
+//       return res
+//         .status(400)
+//         .json({ message: 'payment_status is required in the body.' });
+//     }
+//     payment_status = payment_status.toUpperCase();
+//     if (!['PAID', 'NOT_PAID'].includes(payment_status)) {
+//       await connection.rollback();
+//       return res.status(400).json({
+//         message: "payment_status must be either 'PAID' or 'NOT_PAID'."
+//       });
+//     }
+
+//     // ensure the record exists
+//     const [found] = await connection.query(
+//       `SELECT company_detail_id
+//          FROM company_details
+//         WHERE company_detail_id = ?
+//         LIMIT 1`,
+//       [id]
+//     );
+//     if (!found.length) {
+//       await connection.rollback();
+//       return res
+//         .status(404)
+//         .json({ message: `No company found with id=${id}.` });
+//     }
+
+//     // perform the update
+//     await connection.query(
+//       `UPDATE company_details
+//           SET payment_status      = ?,
+//               payment_verified_at = CASE WHEN ? = 'PAID' THEN CURRENT_TIMESTAMP ELSE payment_verified_at END,
+//               updated_at          = CURRENT_TIMESTAMP
+//         WHERE company_detail_id = ?`,
+//       [payment_status, payment_status, id]
+//     );
+
+//     // read back the updated row
+//     const [updatedRows] = await connection.query(
+//       `SELECT *
+//          FROM company_details
+//         WHERE company_detail_id = ?`,
+//       [id]
+//     );
+
+//     await connection.commit();
+//     return res.status(200).json({
+//       message: 'Company status updated successfully.',
+//       data: updatedRows[0]
+//     });
+//   } catch (err) {
+//     await connection.rollback();
+//     console.error('Error updating company status:', err);
+//     return res
+//       .status(500)
+//       .json({ message: 'Server error while updating company status.' });
+//   } finally {
+//     connection.release();
+//   }
+// });
+
 app.patch('/company-details/:id/status', async (req, res) => {
   const connection = await connect.getConnection();
   try {
     await connection.beginTransaction();
 
-    const { id } = req.params;
-    let { payment_status } = req.body;
-    if (!payment_status) {
+    const idNum = Number(req.params.id);
+    if (!Number.isInteger(idNum) || idNum <= 0) {
       await connection.rollback();
-      return res
-        .status(400)
-        .json({ message: 'payment_status is required in the body.' });
+      return res.status(400).json({ message: 'id must be a positive integer.' });
     }
-    payment_status = payment_status.toUpperCase();
+
+    let { payment_status } = req.body;
+    if (typeof payment_status !== 'string') {
+      await connection.rollback();
+      return res.status(400).json({ message: 'payment_status must be a string.' });
+    }
+    payment_status = payment_status.trim().toUpperCase();
     if (!['PAID', 'NOT_PAID'].includes(payment_status)) {
       await connection.rollback();
       return res.status(400).json({
@@ -3504,55 +3577,54 @@ app.patch('/company-details/:id/status', async (req, res) => {
       });
     }
 
-    // ensure the record exists
     const [found] = await connection.query(
       `SELECT company_detail_id
          FROM company_details
         WHERE company_detail_id = ?
-        LIMIT 1`,
-      [id]
+        FOR UPDATE`,
+      [idNum]
     );
+
+    // Your new convention: do NOT 404 on empty data
     if (!found.length) {
       await connection.rollback();
-      return res
-        .status(404)
-        .json({ message: `No company found with id=${id}.` });
+      return res.status(200).json({
+        message: `No company record for id=${idNum}.`,
+        data: null
+      });
     }
 
-    // perform the update
     await connection.query(
       `UPDATE company_details
-          SET payment_status      = ?,
-              payment_verified_at = CASE WHEN ? = 'PAID' THEN CURRENT_TIMESTAMP ELSE payment_verified_at END,
-              updated_at          = CURRENT_TIMESTAMP
+          SET payment_status = ?,
+              payment_verified_at = CASE WHEN ? = 'PAID'
+                                         THEN CURRENT_TIMESTAMP
+                                         ELSE NULL
+                                    END,
+              updated_at = CURRENT_TIMESTAMP
         WHERE company_detail_id = ?`,
-      [payment_status, payment_status, id]
+      [payment_status, payment_status, idNum]
     );
 
-    // read back the updated row
     const [updatedRows] = await connection.query(
-      `SELECT *
-         FROM company_details
-        WHERE company_detail_id = ?`,
-      [id]
+      `SELECT * FROM company_details WHERE company_detail_id = ?`,
+      [idNum]
     );
 
     await connection.commit();
     return res.status(200).json({
-      message: 'Company status updated successfully.',
+      success: true,
+      message: 'Company status updated.',
       data: updatedRows[0]
     });
   } catch (err) {
     await connection.rollback();
     console.error('Error updating company status:', err);
-    return res
-      .status(500)
-      .json({ message: 'Server error while updating company status.' });
+    return res.status(500).json({ message: 'Server error while updating company status.' });
   } finally {
     connection.release();
   }
 });
-
 
 // /**
 //  * POST /smstable-deposit-log
