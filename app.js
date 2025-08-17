@@ -435,7 +435,7 @@ app.get('/get-all-savings-transaction', async (req, res) => {
         data: rows
       });
     } else {
-      res.status(200).json({ message: 'No transactions found.',  data: [], });
+      res.status(400).json({ message: 'No transactions found.',  data: [], });
     }
   } catch (error) {
     console.error('Error retrieving transaction data:', error);
@@ -561,7 +561,7 @@ app.post('/create-saving', authenticateJWT, async (req, res) => {
 
     if (companyDetails.length === 0) {
       await connection.rollback();
-      return res.status(200).json({ message: 'Company details not found in the DB.' });
+      return res.status(400).json({ message: 'Company details not found in the DB.' });
     }
       let receiptData = { }; // Initialize receiptData to an empty object
     // 5) Update the savings balance in transactions
@@ -583,7 +583,7 @@ app.post('/create-saving', authenticateJWT, async (req, res) => {
 
     if (rows.length === 0) {
       await connection.rollback();
-      return res.status(400).json({ message: 'Transaction ID not found in transactions.', receiptData: receiptData });
+      return res.status(400).json({ message: 'Transaction ID not found in transactions.' });
     }
 
     const updatedBalance = rows[0].SavingsRunningBalance;
@@ -2947,7 +2947,7 @@ app.post('/login', async (req, res) => {
 
     if (rows.length === 0) {
       await connection.rollback();
-      return res.status(404).json({ message: 'User not found or invalid unique code.' });
+      return res.status(400).json({ message: 'User not found or invalid unique code.' });
     }
     const user = rows[0];
 
